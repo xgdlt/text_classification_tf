@@ -26,7 +26,8 @@ class TextCNNConfig(object):
                embed_size=128,
                multi_label_flag=False,
                clip_gradients=5.0,
-               decay_rate_big=0.50):
+               decay_rate_big=0.50,
+               model_name = "textcnn"):
       # set hyperparamter
       self.num_classes = num_classes
       self.vocab_size = vocab_size
@@ -44,6 +45,7 @@ class TextCNNConfig(object):
       self.num_filters_total = self.num_filters * len(filter_sizes)  # how many filters totally.
       self.multi_label_flag = multi_label_flag
       self.clip_gradients = clip_gradients
+      self.model_name = model_name
 
 
 
@@ -96,6 +98,8 @@ class TextCNN:
         # add placeholder (X,label)
         self.input_x = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x")  # X
         self.input_y = tf.placeholder(tf.int32, [None,self.num_classes],name="input_y")  # y:[None,num_classes]
+        print("input_x : ", self.input_x)
+        print("input_y : ", self.input_y)
         self.input_y_multilabel = tf.placeholder(tf.float32,[None,self.num_classes], name="input_y_multilabel")  # y:[None,num_classes]. this is for multi-label classification only.
         self.dropout_keep_prob=tf.placeholder(tf.float32,name="dropout_keep_prob")
         self.iter = tf.placeholder(tf.int32) #training iteration
@@ -114,13 +118,14 @@ class TextCNN:
 
         if config.multi_label_flag:
             print("going to use multi label loss.");
-            self.possibility = tf.nn.sigmoid(self.logits)
+            self.possibility = tf.nn.sigmoid(self.logits, name="possibility")
             self.loss_val = self.loss_multilabel()
         else:
             print("going to use single label loss.")
-            self.possibility = tf.nn.softmax(self.logits)
+            self.possibility = tf.nn.softmax(self.logits, name="possibility")
             print(self.possibility)
             self.loss_val = self.loss()
+        print(self.possibility )
         self.train_op = self.train()
         if not self.multi_label_flag:
             self.predictions = tf.argmax(self.logits, 1, name="predictions")  # shape:[None,]

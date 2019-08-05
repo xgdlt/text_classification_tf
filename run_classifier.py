@@ -279,7 +279,7 @@ def load_data(model_data_dir):
     print(dev_example[0:10])
     print(dev_label[0:10])
 
-    predict_file = os.path.join(FLAGS.model_data_dir, "predict.csv")
+    predict_file = os.path.join(FLAGS.model_data_dir, "test.csv")
     predict_example, predict_label = dataHelper.get_data_examples(predict_file)
     print("predict example: ")
     print(predict_example[0:10])

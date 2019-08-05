@@ -208,24 +208,47 @@ def write_file(output_file, lines):
 
 def get_data_examples(input_file,example_index=0, label_index=1, segger=False):
     """Reads a tab separated value file."""
-    print("example_index = ", example_index)
+    print("example_index = ", example_index, "label_index = ", label_index)
     lines = read_csv(input_file)
     examples = []
     labels = []
     for  line in lines:
-        if len(line) < example_index+1 or len(line) < label_index+1:
+        if len(line) < example_index+1 :
+            examples.append("")
+            labels.append("")
             continue
         #print(line)
         example = line[example_index]
-        label = line[label_index]
         #print(example)
         if segger:
             example = tokenization.tokenize_word(example)
         #print(example)
         examples.append(" ".join(example))
-        labels.append(label)
-    print(examples[0:10])
+
+        if len(line) < label_index+1:
+            labels.append(" ")
+        else:
+            label = line[label_index]
+            labels.append(label)
     return examples, labels
+
+
+def get_predict_data(input_file,example_index=0, segger=False):
+    """Reads a tab separated value file."""
+    print("predict example_index = ", example_index)
+    lines = read_csv(input_file)
+    examples = []
+    for  line in lines:
+        if len(line) < example_index+1 :
+            continue
+        #print(line)
+        example = line[example_index]
+        #print(example)
+        if segger:
+            example = tokenization.tokenize_word(example)
+        #print(example)
+        examples.append(" ".join(example))
+    return examples
 
 def get_index(input_file):
     """Reads a tab separated value file."""
@@ -250,6 +273,7 @@ def convert_to_ids_by_vocab(max_seq_length,vocab, items):
               output.append(vocab.get(word))
           else:
               output.append(vocab.get("[UNK]"))
+      output = output[0:max_seq_length]
       while len(output) < max_seq_length:
           output.append(vocab.get("[PAD]"))
       outputs.append(output)
@@ -267,3 +291,12 @@ def convert_to_one_hots(label2index, items):
               output[label_index] = 1
       outputs.append(output)
   return outputs
+
+def convert_to_label_num(possibilitys):
+  """Converts a sequence of [tokens|ids] using the vocab."""
+  label = []
+  for index, values in enumerate(possibilitys):
+      value = values.index(max(values))
+      label.append(value)
+
+  return label
