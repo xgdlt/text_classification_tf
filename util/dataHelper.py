@@ -210,6 +210,7 @@ def get_data_examples(input_file,example_index=0, label_index=1, segger=False):
     """Reads a tab separated value file."""
     print("example_index = ", example_index, "label_index = ", label_index)
     lines = read_csv(input_file)
+    random.shuffle(lines)
     examples = []
     labels = []
     for  line in lines:

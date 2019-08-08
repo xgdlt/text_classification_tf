@@ -48,12 +48,15 @@ tf.app.flags.DEFINE_boolean("is_training_flag",True,"is training.true:tranining,
 tf.app.flags.DEFINE_boolean("is_deving_flag",True,"is deving.true:deving,false:tranining/testing")
 tf.app.flags.DEFINE_boolean("is_testing_flag",True,"is testing.true:testing,false:tranining/deving")
 
-tf.app.flags.DEFINE_integer("num_epochs",10,"number of epochs to run.")
+tf.app.flags.DEFINE_integer("num_epochs",1,"number of epochs to run.")
 tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.") #每10轮做一次验证
 tf.app.flags.DEFINE_boolean("use_embedding",False,"whether to use embedding or not.")
 tf.app.flags.DEFINE_string("word2vec_model_path","word2vec-title-desc.bin","word2vec's vocabulary and vectors")
 tf.app.flags.DEFINE_string("name_scope","cnn","name scope value.")
 tf.app.flags.DEFINE_boolean("multi_label_flag",False,"use multi label or single label.")
+
+tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "Rate of dropout") #0.5
+
 
 #textcnn
 tf.app.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
@@ -185,11 +188,14 @@ def main(_):
             do_predict(sess, model, testX, testY, label2index,output_file=ouptput_file, example=predict_example)
         # 6.保存pb
         if FLAGS.save_pb:
-            output_nodel_names = ["possibility:0"]
+            if FLAGS.multi_label_flag:
+                output_nodel_names = ["possibility"]
+            else:
+                output_nodel_names = ["possibility,predictions"]
             output_pb_file =  os.path.join(FLAGS.model_data_dir, "model.pb")
             output_graph_def = tf.graph_util.convert_variables_to_constants(
                 sess,sess.graph_def,output_node_names=output_nodel_names)
-            with tf.gfile.FastGFile(ouptput_file,mode="wb") as f:
+            with tf.gfile.FastGFile(output_pb_file,mode="wb") as f:
                 f.write(output_graph_def.SerializeToString())
             print("pb file is saved")
 
