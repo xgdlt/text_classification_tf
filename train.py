@@ -18,6 +18,7 @@ import shutil
 import json
 import random
 from numba import jit
+from knn import fastknn
 
 from util import dataHelper
 from util import tokenization
@@ -43,17 +44,21 @@ tf.app.flags.DEFINE_integer("decay_steps", 1000, "how many steps before decay le
 tf.app.flags.DEFINE_float("decay_rate", 1.0, "Rate of decay for learning rate.") #0.65一次衰减多少
 tf.app.flags.DEFINE_string("ckpt_dir",None,"checkpoint location for the model")
 tf.app.flags.DEFINE_integer("sentence_len",128,"max sentence length")
+tf.app.flags.DEFINE_integer("min_sentence_len",5,"min num for max sentence length")
 tf.app.flags.DEFINE_integer("embed_size",128,"embedding size")
 tf.app.flags.DEFINE_boolean("is_training_flag",True,"is training.true:tranining,false:testing/deving")
 tf.app.flags.DEFINE_boolean("is_deving_flag",True,"is deving.true:deving,false:tranining/testing")
 tf.app.flags.DEFINE_boolean("is_testing_flag",True,"is testing.true:testing,false:tranining/deving")
 
-tf.app.flags.DEFINE_integer("num_epochs",1,"number of epochs to run.")
+tf.app.flags.DEFINE_integer("num_epochs",30,"number of epochs to run.")
 tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.") #每10轮做一次验证
 tf.app.flags.DEFINE_boolean("use_embedding",False,"whether to use embedding or not.")
 tf.app.flags.DEFINE_string("word2vec_model_path","word2vec-title-desc.bin","word2vec's vocabulary and vectors")
 tf.app.flags.DEFINE_string("name_scope","cnn","name scope value.")
 tf.app.flags.DEFINE_boolean("multi_label_flag",False,"use multi label or single label.")
+
+tf.app.flags.DEFINE_boolean("use_knn",True,"use knn.")
+
 
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "Rate of dropout") #0.5
 
@@ -66,8 +71,8 @@ tf.app.flags.DEFINE_integer("num_filters", 128, "number of filters") #256--->512
 #1.load data(X:list of lint,y:int). 2.create session. 3.feed data. 4.training (5.validation) ,(6.prediction)
 def main(_):
     #trainX, trainY, testX, testY = None, None, None, None
-    #vocabulary_word2index, vocabulary_index2word, vocabulary_label2index, _= create_vocabulary(FLAGS.traning_data_path,FLAGS.vocab_size,name_scope=FLAGS.name_scope)
-    word2index, label2index, trainX, trainY, vaildX, vaildY, testX, testY,dev_example,predict_example=load_data(FLAGS.model_data_dir)
+    train_example, train_label, dev_example, dev_label, predict_example, predict_label = load_examlpe_data()
+    word2index, label2index, trainX, trainY, vaildX, vaildY, testX, testY = cover_example_to_ids(train_example, train_label, dev_example, dev_label, predict_example, predict_label)
     vocab_size = len(word2index)
     print("cnn_model.vocab_size:",vocab_size)
     num_classes=len(label2index)
@@ -119,9 +124,6 @@ def main(_):
         if tf.train.get_checkpoint_state(FLAGS.ckpt_dir):
             print("Restoring Variables from Checkpoint.")
             saver.restore(sess,tf.train.latest_checkpoint(FLAGS.ckpt_dir))
-            #for i in range(3): #decay learning rate if necessary.
-            #    print(i,"Going to decay learning rate by half.")
-            #    sess.run(textCNN.learning_rate_decay_half_op)
         else:
             print('Initializing Variables')
             sess.run(tf.global_variables_initializer())
@@ -135,7 +137,7 @@ def main(_):
             number_of_training_data=len(trainX)
             batch_size=FLAGS.batch_size
             iteration=0
-            for epoch in range(curr_epoch,FLAGS.num_epochs):
+            for epoch in range(curr_epoch,curr_epoch + FLAGS.num_epochs):
                 loss, counter =  0.0, 0
                 for start, end in zip(range(0, number_of_training_data+batch_size, batch_size),range(batch_size, number_of_training_data+batch_size, batch_size)):
                     iteration=iteration+1
@@ -188,10 +190,8 @@ def main(_):
             do_predict(sess, model, testX, testY, label2index,output_file=ouptput_file, example=predict_example)
         # 6.保存pb
         if FLAGS.save_pb:
-            if FLAGS.multi_label_flag:
-                output_nodel_names = ["possibility"]
-            else:
-                output_nodel_names = ["possibility,predictions"]
+            output_nodel_names = ["possibility"]
+            #output_nodel_names = ["possibility","predictions"]
             output_pb_file =  os.path.join(FLAGS.model_data_dir, "model.pb")
             output_graph_def = tf.graph_util.convert_variables_to_constants(
                 sess,sess.graph_def,output_node_names=output_nodel_names)
@@ -203,7 +203,8 @@ def main(_):
 
 
 # 在验证集上做验证，报告损失、精确度
-def do_eval(sess, model, evalX, evalY, label2index,output_file=None,example=[]):
+def do_eval(sess, model, evalX, evalY, label2index,
+            output_file=None,example=None,use_knn=False,train_examples=None,train_labels=None):
     #evalX = evalX[0:3000]
     #evalY = evalY[0:3000]
     num_classes = len(label2index)
@@ -238,6 +239,10 @@ def do_eval(sess, model, evalX, evalY, label2index,output_file=None,example=[]):
     print("eval evalY size : ", len(evalY))
     #if not FLAGS.multi_label_flag:
     #    predict = [int(ii > 0.5) for ii in predict]
+    if use_knn:
+        knn_model = fastknn.fastknn(train_examples, train_labels)
+        for index, token in enumerate(example):
+            ratio,_,label = knn_model.predict(token)
     _, _, f1_macro, f1_micro, total_list = fastF1(predict, evalY, num_classes)
     for index, P_R_F1 in enumerate(total_list):
         P,R,F1 = P_R_F1
@@ -246,6 +251,7 @@ def do_eval(sess, model, evalX, evalY, label2index,output_file=None,example=[]):
 
     if output_file:
         fw = open(output_file, "w")
+        fw.write("total accuarcy: %.4f\n"%(eval_accuarcy/float(eval_counter)))
         fw.write("label\tprecision\taccuracy\tF1\n")
         for index, P_R_F1 in enumerate(total_list):
             P, R, F1 = P_R_F1
@@ -261,8 +267,6 @@ def do_eval(sess, model, evalX, evalY, label2index,output_file=None,example=[]):
 
 # 在验证集上做验证，报告损失、精确度
 def do_predict(sess, model, predictX, predictY, label2index, output_file=None,example=[]):
-    #predictX = predictX[0:3000]
-    #predictY = predictY[0:3000]
     num_classes = len(label2index)
     index2label = {}
     for label, index in label2index.items():
@@ -276,12 +280,6 @@ def do_predict(sess, model, predictX, predictY, label2index, output_file=None,ex
         ''' predictuation in one batch '''
         feed_dict = {model.input_x: predictX[start:end],  model.dropout_keep_prob: 1.0,
                      model.is_training_flag: False}
-        '''
-        if not FLAGS.multi_label_flag:
-            feed_dict[model.input_y] = predictY[start:end]
-        else:
-            feed_dict[model.input_y_multilabel] = predictY[start:end]
-        '''
         possibilitys = sess.run(model.possibility, feed_dict)
         #print("predict possibility : ", possibility)
         possibilitys = [list(possibility) for possibility in possibilitys]
@@ -503,7 +501,10 @@ def load_data(model_data_dir):
 
     seq_lenth_file = os.path.join(FLAGS.model_data_dir, "seq_length.csv")
     sentence_len = get_seq_lentgh(seq_lenth_file, train_example, dev_example, predict_example)
+    if sentence_len < FLAGS.min_sentence_len:
+        sentence_len = FLAGS.min_sentence_len
     FLAGS.sentence_len = sentence_len
+
     print("sentence_len = ",FLAGS.sentence_len )
     train_X = dataHelper.convert_to_ids_by_vocab(FLAGS.sentence_len,word2index, train_example)
     train_Y = dataHelper.convert_to_one_hots(label2index, train_label)
@@ -527,6 +528,81 @@ def load_data(model_data_dir):
     #    word2index, label2index=pickle.load(data_f_pickle)
     print("INFO. cache file load successful...")
     return word2index, label2index,train_X,train_Y,dev_X,dev_Y,predict_X, predict_Y,dev_example,predict_example
+
+
+
+def load_examlpe_data():
+    """
+    load data from h5py and pickle cache files, which is generate by take step by step of pre-processing.ipynb
+    :return:
+    """
+    if not os.path.exists(FLAGS.model_data_dir):
+        raise RuntimeError("############################ERROR##############################\n. "
+                           "please download file, it include training data and vocabulary & labels. ")
+    print("INFO. model_data_dir exists. going to load file")
+
+    train_example, train_label = load_example_and_label( "train.csv", FLAGS.is_training_flag)
+    dev_example, dev_label = load_example_and_label("dev.csv", FLAGS.is_deving_flag)
+    predict_example,predict_label = load_example_and_label( "test.csv",FLAGS.is_testing_flag)
+
+    return train_example, train_label ,dev_example, dev_label ,predict_example,predict_label
+
+
+def cover_example_to_ids(train_example, train_label ,dev_example, dev_label ,predict_example,predict_label):
+
+    label_file = os.path.join(FLAGS.model_data_dir, "label.csv")
+    if not os.path.exists(label_file):
+        labels = []
+        labels.extend(train_label)
+        labels.extend(dev_label)
+        label_cnt = {}
+        for label in labels:
+            tags = label.strip().split(" ")
+            for tag in tags:
+                if tag not in label_cnt:
+                    label_cnt[tag] = 0
+                label_cnt[tag] += 1
+        labels = []
+        for label, cnt in label_cnt.items():
+            if cnt > 10:
+                labels.append(label)
+        print("labels : ", label_cnt)
+        dataHelper.write_file(label_file,labels)
+    label2index =  dataHelper.get_index(label_file)
+    print("INFO. label2index: ", label2index)
+
+    word_file = os.path.join(FLAGS.model_data_dir, "word.csv")
+    if not os.path.exists(word_file):
+        create_word_index(word_file, train_example)
+    word2index = dataHelper.get_index(word_file)
+
+    seq_lenth_file = os.path.join(FLAGS.model_data_dir, "seq_length.csv")
+    sentence_len = get_seq_lentgh(seq_lenth_file, train_example, dev_example, predict_example)
+    if sentence_len < FLAGS.min_sentence_len:
+        sentence_len = FLAGS.min_sentence_len
+    FLAGS.sentence_len = sentence_len
+    print("sentence_len = ",FLAGS.sentence_len )
+    train_X = dataHelper.convert_to_ids_by_vocab(FLAGS.sentence_len, word2index, train_example)
+    train_Y = dataHelper.convert_to_one_hots(label2index, train_label)
+    assert len(train_X) == len(train_Y)
+    print("train")
+    print_example(train_example, train_X, train_label, train_Y)
+
+    dev_X = dataHelper.convert_to_ids_by_vocab(FLAGS.sentence_len,word2index, dev_example)
+    dev_Y = dataHelper.convert_to_one_hots(label2index, dev_label)
+    assert len(dev_X) == len(dev_Y)
+    print("dev")
+    print_example(dev_example, dev_X, dev_label, dev_Y)
+
+    predict_X = dataHelper.convert_to_ids_by_vocab(FLAGS.sentence_len,word2index, predict_example)
+    predict_Y = dataHelper.convert_to_one_hots(label2index, predict_label)
+    assert len(predict_X) == len(predict_Y)
+    print("predict")
+    print_example(predict_example, predict_X, predict_label, predict_Y)
+    #with open(cache_file_pickle, 'rb') as data_f_pickle:
+    #    word2index, label2index=pickle.load(data_f_pickle)
+    print("INFO. cache file load successful...")
+    return word2index, label2index,train_X,train_Y,dev_X,dev_Y,predict_X, predict_Y
 
 
 if __name__ == "__main__":
