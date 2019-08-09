@@ -17,6 +17,7 @@ import os
 import shutil
 import json
 import random
+import time
 from numba import jit
 from knn import fastknn
 
@@ -46,11 +47,11 @@ tf.app.flags.DEFINE_string("ckpt_dir",None,"checkpoint location for the model")
 tf.app.flags.DEFINE_integer("sentence_len",128,"max sentence length")
 tf.app.flags.DEFINE_integer("min_sentence_len",5,"min num for max sentence length")
 tf.app.flags.DEFINE_integer("embed_size",128,"embedding size")
-tf.app.flags.DEFINE_boolean("is_training_flag",True,"is training.true:tranining,false:testing/deving")
+tf.app.flags.DEFINE_boolean("is_training_flag",False,"is training.true:tranining,false:testing/deving")
 tf.app.flags.DEFINE_boolean("is_deving_flag",True,"is deving.true:deving,false:tranining/testing")
 tf.app.flags.DEFINE_boolean("is_testing_flag",True,"is testing.true:testing,false:tranining/deving")
 
-tf.app.flags.DEFINE_integer("num_epochs",30,"number of epochs to run.")
+tf.app.flags.DEFINE_integer("num_epochs",1,"number of epochs to run.")
 tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.") #每10轮做一次验证
 tf.app.flags.DEFINE_boolean("use_embedding",False,"whether to use embedding or not.")
 tf.app.flags.DEFINE_string("word2vec_model_path","word2vec-title-desc.bin","word2vec's vocabulary and vectors")
@@ -183,7 +184,8 @@ def main(_):
         # 5.最后在测试集上做测试，并报告测试准确率 Test
         if FLAGS.is_deving_flag:
             dev_ouptput_file = os.path.join(FLAGS.model_data_dir, "dev_result.csv")
-            test_accuarcy, test_loss,f1_score,f1_micro,f1_macro,total_list = do_eval(sess, model, vaildX, vaildY,label2index,output_file=dev_ouptput_file,example=dev_example)
+            test_accuarcy, test_loss,f1_score,f1_micro,f1_macro,total_list = do_eval(sess, model, vaildX, vaildY,label2index,
+                    output_file=dev_ouptput_file,example=dev_example,use_knn=True,train_examples=train_example,train_labels=train_label)
             print("Test accuarcy:%.3f\t Test Loss:%.3f\tF1 Score:%.3f\tF1_micro:%.3f\tF1_macro:%.3f" % (test_accuarcy, test_loss,f1_score,f1_micro,f1_macro))
         if FLAGS.is_testing_flag:
             ouptput_file =  os.path.join(FLAGS.model_data_dir, "predict_result.csv")
@@ -239,10 +241,26 @@ def do_eval(sess, model, evalX, evalY, label2index,
     print("eval evalY size : ", len(evalY))
     #if not FLAGS.multi_label_flag:
     #    predict = [int(ii > 0.5) for ii in predict]
+
+
     if use_knn:
-        knn_model = fastknn.fastknn(train_examples, train_labels)
+        print("beforn knn\n")
+        _, _, f1_macro, f1_micro, total_list = fastF1(predict, evalY, num_classes)
+        for index, P_R_F1 in enumerate(total_list):
+            P, R, F1 = P_R_F1
+            print(index2label[index], "P: ", P, "R: ", R, "F1: ", F1)
+
+        knn_model = fastknn.fastknn(train_examples[0:1000], y_true[0:1000])
+        print("begin to knn classifier")
         for index, token in enumerate(example):
-            ratio,_,label = knn_model.predict(token)
+            start = time.time()
+            ratio,train_example,label = knn_model.predict(token)
+            #print("cost = %2f"%(start-  time.time()))
+            if ratio > 0.9:
+                #print("knn: %.2f %s ----- %s   %s"%(ratio,token,train_example, label))
+                y_predict[index] = label
+        print("after knn\n")
+
     _, _, f1_macro, f1_micro, total_list = fastF1(predict, evalY, num_classes)
     for index, P_R_F1 in enumerate(total_list):
         P,R,F1 = P_R_F1
@@ -541,9 +559,9 @@ def load_examlpe_data():
                            "please download file, it include training data and vocabulary & labels. ")
     print("INFO. model_data_dir exists. going to load file")
 
-    train_example, train_label = load_example_and_label( "train.csv", FLAGS.is_training_flag)
-    dev_example, dev_label = load_example_and_label("dev.csv", FLAGS.is_deving_flag)
-    predict_example,predict_label = load_example_and_label( "test.csv",FLAGS.is_testing_flag)
+    train_example, train_label = load_example_and_label( "train.csv")
+    dev_example, dev_label = load_example_and_label("dev.csv")
+    predict_example,predict_label = load_example_and_label( "test.csv")
 
     return train_example, train_label ,dev_example, dev_label ,predict_example,predict_label
 
