@@ -2,7 +2,7 @@
 #import sys
 #reload(sys)
 #sys.setdefaultencoding('utf-8') #gb2312
-#training the model.
+#training the model_torch.
 #process--->1.load data(X:list of lint,y:int). 2.create session. 3.feed data. 4.training (5.validation) ,(6.prediction)
 #import sys
 #reload(sys)
@@ -25,16 +25,16 @@ FLAGS=tf.app.flags.FLAGS
 #tf.app.flags.DEFINE_string("traning_data_path","../data/sample_multiple_label.txt","path of traning data.") #../data/sample_multiple_label.txt
 #tf.app.flags.DEFINE_integer("vocab_size",100000,"maximum vocab size.")
 
-tf.app.flags.DEFINE_string("model_name", "textcnn", "which model will use")
+tf.app.flags.DEFINE_string("model_name", "textcnn", "which model_torch will use")
 
 tf.app.flags.DEFINE_string("model_data_dir","./data","path of training/validation/test data.") #../data/sample_multiple_label.txt
-tf.app.flags.DEFINE_string("model_json_path","./model.json","path of vocabulary and label files") #../data/sample_multiple_label.txt
+tf.app.flags.DEFINE_string("model_json_path","./model_torch.json","path of vocabulary and label files") #../data/sample_multiple_label.txt
 
 tf.app.flags.DEFINE_float("learning_rate",0.0003,"learning rate")
 tf.app.flags.DEFINE_integer("batch_size", 64, "Batch size for training/evaluating.") #批处理的大小 32-->128
 tf.app.flags.DEFINE_integer("decay_steps", 1000, "how many steps before decay learning rate.") #6000批处理的大小 32-->128
 tf.app.flags.DEFINE_float("decay_rate", 1.0, "Rate of decay for learning rate.") #0.65一次衰减多少
-tf.app.flags.DEFINE_string("ckpt_dir","checkpoint/","checkpoint location for the model")
+tf.app.flags.DEFINE_string("ckpt_dir","checkpoint/","checkpoint location for the model_torch")
 tf.app.flags.DEFINE_integer("sentence_len",128,"max sentence length")
 tf.app.flags.DEFINE_integer("embed_size",128,"embedding size")
 tf.app.flags.DEFINE_boolean("is_training_flag",True,"is training.true:tranining,false:testing/inference")
@@ -128,9 +128,9 @@ def main(_):
                 if start%(3000*FLAGS.batch_size)==0: # eval every 3000 steps.
                     eval_loss, f1_score,f1_micro,f1_macro = do_eval(sess, model, vaildX, vaildY,num_classes)
                     print("Epoch %d Validation Loss:%.3f\tF1 Score:%.3f\tF1_micro:%.3f\tF1_macro:%.3f" % (epoch, eval_loss, f1_score,f1_micro,f1_macro))
-                    # save model to checkpoint
-                    save_path = FLAGS.ckpt_dir + "model.ckpt"
-                    print("Going to save model..")
+                    # save model_torch to checkpoint
+                    save_path = FLAGS.ckpt_dir + "model_torch.ckpt"
+                    print("Going to save model_torch..")
                     saver.save(sess, save_path, global_step=epoch)
                 ########################################################################################################
             #epoch increment
@@ -142,8 +142,8 @@ def main(_):
             if epoch % FLAGS.validate_every==0:
                 eval_loss,f1_score,f1_micro,f1_macro=do_eval(sess,model,testX,testY,num_classes)
                 print("Epoch %d Validation Loss:%.3f\tF1 Score:%.3f\tF1_micro:%.3f\tF1_macro:%.3f" % (epoch,eval_loss,f1_score,f1_micro,f1_macro))
-                #save model to checkpoint
-                save_path=FLAGS.ckpt_dir+"model.ckpt"
+                #save model_torch to checkpoint
+                save_path=FLAGS.ckpt_dir+"model_torch.ckpt"
                 saver.save(sess,save_path,global_step=epoch)
 
         # 5.最后在测试集上做测试，并报告测试准确率 Test
@@ -243,7 +243,7 @@ def assign_pretrained_word_embedding(sess,vocabulary_index2word,vocab_size,model
             count_not_exist = count_not_exist + 1  # init a random value for the word.
     word_embedding_final = np.array(word_embedding_2dlist)  # covert to 2d array.
     word_embedding = tf.constant(word_embedding_final, dtype=tf.float32)  # convert to tensor
-    t_assign_embedding = tf.assign(model.Embedding,word_embedding)  # assign this value to our embedding variables of our model.
+    t_assign_embedding = tf.assign(model.Embedding,word_embedding)  # assign this value to our embedding variables of our model_torch.
     sess.run(t_assign_embedding);
     print("word. exists embedding:", count_exist, " ;word not exist embedding:", count_not_exist)
     print("using pre-trained word emebedding.ended...")
