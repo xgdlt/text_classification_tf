@@ -47,7 +47,7 @@ tf.app.flags.DEFINE_string("ckpt_dir",None,"checkpoint location for the model")
 tf.app.flags.DEFINE_integer("sentence_len",128,"max sentence length")
 tf.app.flags.DEFINE_integer("min_sentence_len",5,"min num for max sentence length")
 tf.app.flags.DEFINE_integer("embed_size",128,"embedding size")
-tf.app.flags.DEFINE_boolean("is_training_flag",False,"is training.true:tranining,false:testing/deving")
+tf.app.flags.DEFINE_boolean("is_training_flag",True,"is training.true:tranining,false:testing/deving")
 tf.app.flags.DEFINE_boolean("is_deving_flag",True,"is deving.true:deving,false:tranining/testing")
 tf.app.flags.DEFINE_boolean("is_testing_flag",True,"is testing.true:testing,false:tranining/deving")
 
@@ -250,7 +250,20 @@ def do_eval(sess, model, evalX, evalY, label2index,
             P, R, F1 = P_R_F1
             print(index2label[index], "P: ", P, "R: ", R, "F1: ", F1)
 
-        knn_model = fastknn.fastknn(train_examples[0:1000], y_true[0:1000])
+        knn_model = fastknn.fastknn(train_examples[0:1000], train_labels[0:1000])
+
+        idf_file = os.path.join(FLAGS.model_data_dir, "idf")
+        fw = open(idf_file, "w",encoding="utf-8")
+        for word, idf in knn_model.word2idfs.items():
+            fw.write("%s\t%.4f\n"%(word,idf))
+        fw.close()
+
+        knn_example_file = os.path.join(FLAGS.model_data_dir, "knn_example.csv")
+        fw = open(knn_example_file, "w", encoding="utf-8")
+        for index in range(min(len(train_examples), 1000)):
+            fw.write("%s\t%s\n"%(train_examples[index], train_labels[index]))
+        fw.close()
+
         print("begin to knn classifier")
         for index, token in enumerate(example):
             start = time.time()
@@ -258,7 +271,7 @@ def do_eval(sess, model, evalX, evalY, label2index,
             #print("cost = %2f"%(start-  time.time()))
             if ratio > 0.9:
                 #print("knn: %.2f %s ----- %s   %s"%(ratio,token,train_example, label))
-                y_predict[index] = label
+                y_predict[index] = label2index[label]
         print("after knn\n")
 
     _, _, f1_macro, f1_micro, total_list = fastF1(predict, evalY, num_classes)
@@ -269,14 +282,18 @@ def do_eval(sess, model, evalX, evalY, label2index,
 
     if output_file:
         fw = open(output_file, "w")
-        fw.write("total accuarcy: %.4f\n"%(eval_accuarcy/float(eval_counter)))
-        fw.write("label\tprecision\taccuracy\tF1\n")
+        fw.write("总准确率: %.4f\n"%(eval_accuarcy/float(eval_counter)))
+        fw.write("标签\t精准率\t召回率\tF1\n")
         for index, P_R_F1 in enumerate(total_list):
             P, R, F1 = P_R_F1
             fw.write("%s\t%.4f\t%.4f\t%.4f\n"%(index2label[index],P,R,F1))
         fw.write("\n")
+        fw.write("问句\t标签\t预测标签\t是否一致\n")
         for index, y_predict_index in enumerate(y_predict):
-            fw.write("%s\t%s\t%s\n" % (example[index], index2label.get(y_true[index], None),index2label.get(y_predict_index, None)))
+            fw.write("%s\t%s\t%s\t%s\n" %( example[index],
+                index2label.get(y_true[index], None),
+                index2label.get(y_predict_index, None),
+                     str(y_true[index]  == y_predict_index)))
         fw.close()
 
     return eval_accuarcy/float(eval_counter), eval_loss/float(eval_counter), f1_score, f1_micro, f1_macro,total_list
