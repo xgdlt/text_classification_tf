@@ -1,10 +1,9 @@
 import  os
 import  tensorflow as tf
 import  numpy as np
-from model_tf import rnn
+from model_tf.classification import textcnn
 from    tensorflow import keras
-import config
-
+from config import Config
 
 # In[16]:
 
@@ -33,14 +32,13 @@ print('x_test shape:', x_test.shape)
 
 
 def main():
-
+    config = Config(config_file="./conf/train.json")
     units = 64
     num_classes = 2
     batch_size = 32
     epochs = 20
 
-    model = rnn.RNN(units,input_dim=10000,output_dim=100,
-                    num_layers=2,input_length = max_review_length,bidirectional=False)
+    model = textcnn.TextCNN(config)
 
     model.compile(optimizer=keras.optimizers.Adam(0.001),
                   loss=keras.losses.BinaryCrossentropy(from_logits=True),

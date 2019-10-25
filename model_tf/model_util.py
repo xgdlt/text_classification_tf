@@ -13,7 +13,7 @@ the License.
 """
 
 import codecs as cs
-import torch
+
 
 from util import Type
 from model_tf.optimizer import BertAdam

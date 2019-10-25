@@ -59,7 +59,7 @@ class EmbeddingProcessType(Type):
 
 
 class Embedding(tf.keras.layers.Layer):
-    def __init__(self, dict_map, embedding_dim, name, config, padding_idx=None,
+    def __init__(self, input_dim, embedding_dim, name, config, padding_idx=None,
                  pretrained_embedding_file=None, mode=EmbeddingProcessType.FLAT,
                  dropout=0, init_type=InitType.XAVIER_UNIFORM, low=0, high=1,
                  mean=0, std=1, activation_type=ActivationType.NONE,
@@ -68,17 +68,14 @@ class Embedding(tf.keras.layers.Layer):
         self.logger = Logger(config)
         self.dropout = tf.keras.layers.Dropout(dropout)
         self.mode = mode
+        self.embedding = tf.keras.layers.Embedding(
+            input_dim, embedding_dim, padding_idx=padding_idx)
         if self.mode == EmbeddingProcessType.FLAT:
-            self.embedding = torch.nn.Embedding(
-                len(dict_map), embedding_dim, padding_idx=padding_idx)
+            #TODO
+            pass
         else:
-            self.embedding = torch.nn.EmbeddingBag(
-                len(dict_map), embedding_dim, mode=mode)
-        embedding_lookup_table = init_tensor(
-            tensor=torch.empty(len(dict_map), embedding_dim),
-            init_type=init_type, low=low, high=high, mean=mean, std=std,
-            activation_type=activation_type, fan_mode=fan_mode,
-            negative_slope=negative_slope)
+            # TODO
+            pass
         if pretrained_embedding_file is not None and \
                 pretrained_embedding_file != "":
             self.load_pretrained_embedding(
