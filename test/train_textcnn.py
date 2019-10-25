@@ -4,6 +4,7 @@ import  numpy as np
 from model_tf.classification import textcnn
 from    tensorflow import keras
 from config import Config
+import matplotlib.pyplot as plt
 
 # In[16]:
 
@@ -14,29 +15,25 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 assert tf.__version__.startswith('2.')
 
 
-
-# fix random seed for reproducibility
-np.random.seed(7)
-# load the dataset but only keep the top n words, zero the rest
-top_words = 10000
-# truncate and pad input sequences
-max_review_length = 80
-(X_train, y_train), (X_test, y_test) = keras.datasets.imdb.load_data(num_words=top_words)
-# X_train = tf.convert_to_tensor(X_train)
-# y_train = tf.one_hot(y_train, depth=2)
-print('Pad sequences (samples x time)')
-x_train = keras.preprocessing.sequence.pad_sequences(X_train, maxlen=max_review_length)
-x_test = keras.preprocessing.sequence.pad_sequences(X_test, maxlen=max_review_length)
-print('x_train shape:', x_train.shape)
-print('x_test shape:', x_test.shape)
-
-
 def main():
-    config = Config(config_file="./conf/train.json")
-    units = 64
-    num_classes = 2
+    # fix random seed for reproducibility
+    np.random.seed(7)
+    # load the dataset but only keep the top n words, zero the rest
+    top_words = 10000
+    # truncate and pad input sequences
+    max_review_length = 80
+    (X_train, y_train), (X_test, y_test) = keras.datasets.imdb.load_data(num_words=top_words)
+    # X_train = tf.convert_to_tensor(X_train)
+    # y_train = tf.one_hot(y_train, depth=2)
+    print('Pad sequences (samples x time)')
+    x_train = keras.preprocessing.sequence.pad_sequences(X_train, maxlen=max_review_length)
+    x_test = keras.preprocessing.sequence.pad_sequences(X_test, maxlen=max_review_length)
+    print('x_train shape:', x_train.shape)
+    print('x_test shape:', x_test.shape)
+
+    config = Config(config_file="../conf/train.json")
     batch_size = 32
-    epochs = 20
+    epochs = 2
 
     model = textcnn.TextCNN(config)
 
@@ -45,8 +42,13 @@ def main():
                   metrics=['accuracy'])
 
     # train
-    model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs,
+    history = model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs,
               validation_data=(x_test, y_test), verbose=1)
+
+    plt.plot(history.history['accuracy'])
+    plt.plot(history.history['val_accuracy'])
+    plt.legend(['training', 'valiation'], loc='upper left')
+    plt.show()
 
     # evaluate on test set
     scores = model.evaluate(x_test, y_test, batch_size, verbose=1)

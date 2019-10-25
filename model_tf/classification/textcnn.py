@@ -22,39 +22,39 @@ class TextCNN(tf.keras.Model):
 
         self.embedding = keras.layers.Embedding(config.TextCNN.input_dim, config.TextCNN.embedding_dimension,
                                                 input_length=config.TextCNN.input_length)
-        self.reshape = keras.layers.Reshape((config.sequence_length, config.TextCNN.embedding_dimension, 1))
+        self.reshape = keras.layers.Reshape((config.TextCNN.input_length, config.TextCNN.embedding_dimension, 1))
 
         self.kernel_sizes = config.TextCNN.kernel_sizes
         self.convs = []
         self.pools = []
 
-
         for kernel_size in self.kernel_sizes:
             conv = keras.layers.Conv2D(filters=64, kernel_size=(kernel_size, config.TextCNN.embedding_dimension),
                                  strides=1, padding='valid', activation='relu')
             self.convs.append(conv)
-            pool =  keras.layers.MaxPool2D(pool_size=(config.sequence_length - kernel_size + 1, 1), padding='valid')
+            pool =  keras.layers.MaxPool2D(pool_size=(config.TextCNN.input_length - kernel_size + 1, 1), padding='valid')
             self.pools.append(pool)
 
-        self.top_k = self.config.TextCNN.top_k_max_pooling
-        hidden_size = len(config.TextCNN.kernel_sizes) * \
-                      config.TextCNN.num_kernels * self.top_k
-
+        #self.top_k = self.config.TextCNN.top_k_max_pooling
+        self.flatten = keras.layers.Flatten()
         self.fc = keras.layers.Dense(config.TextCNN.num_classes)
-        #self.linear = torch.nn.Linear(hidden_size, len(dataset.label_map))
-        #self.dropout = torch.nn.Dropout(p=config.train.hidden_layer_dropout)
 
-    def call(self, inputs):
+    def call(self, inputs,training=None, mask=None):
         x = self.embedding(inputs)
-        print(x)
+        print("embedding", x)
         x = self.reshape(x)
-        print(x)
+        print("reshape ", x)
         cnns = []
         for i in range(len(self.convs)):
             conv = self.convs[i](x)
             pool = self.pools[i](conv)
             cnns.append(pool)
+            print("conv %d"%i, conv)
+            print("pool %d"%i, pool)
+
         x = keras.layers.concatenate(cnns)
-        print(x)
-        x =self.fc(x)
+        print("concat", x)
+        x = self.flatten(x)
+        print("flatten ", x)
+        x = self.fc(x)
         return x
