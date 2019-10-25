@@ -1,7 +1,7 @@
 # --------------------------------------实例一-----------------------------------------------
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
-from util import tfidfUtil
+from data_util import tfidfUtil
 
 class fastknn(object):
     def __init__(self, examples, labels):
