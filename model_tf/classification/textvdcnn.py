@@ -15,16 +15,14 @@ the License.
 # Implement model_tf of "Very deep convolutional networks for text classification"
 # which can be seen at "http://www.aclweb.org/anthology/E17-1104"
 
-import torch
-
+import tensorflow as tf
+from tensorflow import keras
 import numpy as np
 
-from dataset.classification_dataset import ClassificationDataset as cDataset
-from model_tf.classification.classifier import Classifier
 
 
-class TextVDCNN(Classifier):
-    def __init__(self, dataset, config):
+class TextVDCNN(tf.keras.Model):
+    def __init__(self, config):
         """all convolutional blocks
         4 kinds of conv blocks, which #feature_map are 64,128,256,512
         Depth:             9  17 29 49
@@ -35,7 +33,7 @@ class TextVDCNN(Classifier):
         conv block 64:     2  4  10 16
         First conv. layer: 1  1  1  1
         """
-        super(TextVDCNN, self).__init__(dataset, config)
+        super(TextVDCNN, self).__init__()
 
         self.vdcnn_num_convs = {}
         self.vdcnn_num_convs[9] = [2, 2, 2, 2]

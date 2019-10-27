@@ -84,6 +84,7 @@
       3,
       4
     ],
+    "filter_sizes": [64,64,64],
     "input_dim":10000,
     "embedding_dimension": 100,
     "input_length": 80,
@@ -92,11 +93,17 @@
     "top_k_max_pooling": 1
   },
   "TextRNN": {
+    "input_dim":10000,
+    "embedding_dimension": 100,
+    "input_length": 80,
     "hidden_dimension": 64,
     "rnn_type": "GRU",
     "num_layers": 1,
+    "use_bias": true,
+    "activation": "relu",
     "doc_embedding_type": "Attention",
     "attention_dimension": 16,
+    "num_classes": 1,
     "bidirectional": true
   },
   "DRNN": {

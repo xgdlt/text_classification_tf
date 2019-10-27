@@ -40,7 +40,7 @@ def main():
     epochs = 20
 
     model = rnn.RNN(units,input_dim=10000,output_dim=100,
-                    num_layers=2,input_length = max_review_length,bidirectional=False)
+                    num_layers=2,input_length = max_review_length,bidirectional=True)
 
     model.compile(optimizer=keras.optimizers.Adam(0.001),
                   loss=keras.losses.BinaryCrossentropy(from_logits=True),

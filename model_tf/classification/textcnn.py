@@ -40,6 +40,7 @@ class TextCNN(tf.keras.Model):
         self.fc = keras.layers.Dense(config.TextCNN.num_classes)
 
     def call(self, inputs,training=None, mask=None):
+        print("inputs", inputs)
         x = self.embedding(inputs)
         print("embedding", x)
         x = self.reshape(x)

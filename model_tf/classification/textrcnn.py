@@ -12,80 +12,112 @@ or implied. See the License for thespecific language governing permissions and l
 the License.
 """
 
-import torch
-import torch.nn.functional as F
-
-from dataset.classification_dataset import ClassificationDataset as cDataset
-from model_tf.classification.classifier import Classifier
-from model_tf.rnn import RNN
+import tensorflow as tf
+from tensorflow import keras
+from util import Type
 
 
-class TextRCNN(Classifier):
-    """TextRNN + TextCNN
+class RNNType(Type):
+    RNN = 'RNN'
+    LSTM = 'LSTM'
+    GRU = 'GRU'
+
+    @classmethod
+    def str(cls):
+        return ",".join([cls.RNN, cls.LSTM, cls.GRU])
+
+
+class TextRCNN(tf.keras.Model):
     """
-    def __init__(self, dataset, config):
-        super(TextRCNN, self).__init__(dataset, config)
-        self.rnn = RNN(
-            config.embedding.dimension, config.TextRCNN.hidden_dimension,
-            num_layers=config.TextRCNN.num_layers,
-            batch_first=True, bidirectional=config.TextRCNN.bidirectional,
-            rnn_type=config.TextRCNN.rnn_type)
+    One layer rnn.
+    """
+    def __init__(self, config):
+        super(TextRCNN, self).__init__()
 
-        hidden_dimension = config.TextRCNN.hidden_dimension
-        if config.TextRCNN.bidirectional:
-            hidden_dimension *= 2
-        self.kernel_sizes = config.TextRCNN.kernel_sizes
-        self.convs = torch.nn.ModuleList()
-        for kernel_size in self.kernel_sizes:
-            self.convs.append(torch.nn.Conv1d(
-                hidden_dimension, config.TextRCNN.num_kernels,
-                kernel_size, padding=kernel_size - 1))
+        self.embedding = keras.layers.Embedding(config.TextRNN.input_dim, config.TextRNN.embedding_dimension,
+                                                input_length=config.TextRNN.input_length)
 
-        self.top_k = self.config.TextRCNN.top_k_max_pooling
-        hidden_size = len(config.TextRCNN.kernel_sizes) * \
-                      config.TextRCNN.num_kernels * self.top_k
-
-        self.linear = torch.nn.Linear(hidden_size, len(dataset.label_map))
-        self.dropout = torch.nn.Dropout(p=config.train.hidden_layer_dropout)
-
-    def get_parameter_optimizer_dict(self):
-        params = list()
-        params.append({'params': self.token_embedding.parameters()})
-        params.append({'params': self.char_embedding.parameters()})
-        params.append({'params': self.rnn.parameters()})
-        params.append({'params': self.convs.parameters()})
-        params.append({'params': self.linear.parameters()})
-        return params
-
-    def update_lr(self, optimizer, epoch):
-        """
-        """
-        if epoch > self.config.train.num_epochs_static_embedding:
-            for param_group in optimizer.param_groups[:2]:
-                param_group["lr"] = self.config.optimizer.learning_rate
+        if config.TextRNN.rnn_type == RNNType.LSTM:
+            if config.TextRNN.bidirectional:
+                self.rnn = tf.keras.layers.Bidirectional(
+                    tf.keras.layers.LSTM(config.TextRNN.hidden_dimension,
+                                         use_bias=config.TextRNN.use_bias,
+                                         activation=config.TextRNN.activation))
+            else:
+                self.rnn = tf.keras.layers.LSTM(config.TextRNN.hidden_dimension,
+                                                use_bias=config.TextRNN.use_bias,
+                                                activation=config.TextRNN.activation)
+        elif config.TextRNN.rnn_type == RNNType.GRU:
+            if config.TextRNN.bidirectional:
+                self.rnn = tf.keras.layers.Bidirectional(
+                    tf.keras.layers.GRU(config.TextRNN.hidden_dimension,
+                                        use_bias=config.TextRNN.use_bias,
+                                        activation=config.TextRNN.activation))
+            else:
+                self.rnn = tf.keras.layers.GRU(config.TextRNN.hidden_dimension,
+                                               use_bias=config.TextRNN.use_bias,
+                                               activation=config.TextRNN.activation)
+        elif config.TextRNN.rnn_type == RNNType.RNN:
+            if config.TextRNN.bidirectional:
+                self.rnn = tf.keras.layers.Bidirectional(
+                     tf.keras.layers.SimpleRNN(config.TextRNN.hidden_dimension,
+                                               use_bias=config.TextRNN.use_bias,
+                                               activation=config.TextRNN.activation))
+            else:
+                self.rnn = tf.keras.layers.SimpleRNN(config.TextRNN.hidden_dimension,
+                                                     use_bias=config.TextRNN.use_bias,
+                                                     activation=config.TextRNN.activation)
         else:
-            for param_group in optimizer.param_groups[:2]:
-                param_group["lr"] = 0
-
-    def forward(self, batch):
-        if self.config.feature.feature_names[0] == "token":
-            embedding = self.token_embedding(
-                batch[cDataset.DOC_TOKEN].to(self.config.device))
-            seq_length = batch[cDataset.DOC_TOKEN_LEN].to(self.config.device)
+            raise TypeError(
+                "Unsupported rnn init type: %s. Supported rnn type is: %s" % (
+                    config.TextRNN.rnn_type, RNNType.str()))
+        if config.TextRNN.bidirectional:
+            rnn_out_dimension = config.TextRNN.hidden_dimension * 2
         else:
-            embedding = self.char_embedding(
-                batch[cDataset.DOC_CHAR].to(self.config.device))
-            seq_length = batch[cDataset.DOC_CHAR_LEN].to(self.config.device)
-        output, _ = self.rnn(embedding, seq_length)
+            rnn_out_dimension = config.TextRNN.hidden_dimension
+        self.reshape = keras.layers.Reshape((rnn_out_dimension, 1, 1))
 
-        doc_embedding = output.transpose(1, 2)
-        pooled_outputs = []
-        for _, conv in enumerate(self.convs):
-            convolution = F.relu(conv(doc_embedding))
-            pooled = torch.topk(convolution, self.top_k)[0].view(
-                convolution.size(0), -1)
-            pooled_outputs.append(pooled)
+        self.kernel_sizes = config.TextCNN.kernel_sizes
+        self.convs = []
+        self.pools = []
 
-        doc_embedding = torch.cat(pooled_outputs, 1)
+        for kernel_size, filter_size in zip(config.TextCNN.kernel_sizes, config.TextCNN.filter_sizes):
+            conv = keras.layers.Conv2D(filters=filter_size, kernel_size=(kernel_size, 1),
+                                       strides=1, padding='valid', activation='relu')
+            self.convs.append(conv)
+            pool = keras.layers.MaxPool2D(pool_size=(config.TextCNN.input_length - kernel_size + 1, 1), padding='valid')
+            self.pools.append(pool)
 
-        return self.dropout(self.linear(doc_embedding))
+        self.flatten = keras.layers.Flatten()
+
+        self.fc = keras.layers.Dense(config.TextCNN.num_classes)
+
+        self.fc = keras.layers.Dense(config.TextCNN.num_classes)
+
+    def call(self, inputs, training=None, mask=None):
+
+        print('inputs', inputs)
+        # [b, sentence len] => [b, sentence len, word embedding]
+        x = self.embedding(inputs)
+        print('embedding', x)
+        x = self.rnn(x)
+        print('rnn', x)
+        x = self.reshape(x)
+        print("reshape ", x)
+        cnns = []
+        for i in range(len(self.convs)):
+            conv = self.convs[i](x)
+            pool = self.pools[i](conv)
+            cnns.append(pool)
+            print("conv %d" % i, conv)
+            print("pool %d" % i, pool)
+
+        x = keras.layers.concatenate(cnns)
+        print("concat", x)
+        x = self.flatten(x)
+        print("flatten ", x)
+        x = self.fc(x)
+
+        return x
+
+

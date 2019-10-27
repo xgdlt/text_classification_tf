@@ -1,4 +1,4 @@
-#!usr/bin/env python
+#!/usr/bin/env python
 # coding:utf-8
 """
 Tencent is pleased to support the open source community by making NeuralClassifier available.
@@ -12,87 +12,81 @@ or implied. See the License for thespecific language governing permissions and l
 the License.
 """
 
-import torch
-
-from dataset.classification_dataset import ClassificationDataset as cDataset
-from model_tf.classification.classifier import Classifier
-from model_tf.layers import SumAttention
-from model_tf.rnn import RNN
+import tensorflow as tf
+from tensorflow import keras
 from util import Type
 
 
-class DocEmbeddingType(Type):
-    """Standard names for doc embedding type.
-    """
-    AVG = 'AVG'
-    ATTENTION = 'Attention'
-    LAST_HIDDEN = 'LastHidden'
+class RNNType(Type):
+    RNN = 'RNN'
+    LSTM = 'LSTM'
+    GRU = 'GRU'
 
     @classmethod
     def str(cls):
-        return ",".join(
-            [cls.AVG, cls.ATTENTION, cls.LAST_HIDDEN])
+        return ",".join([cls.RNN, cls.LSTM, cls.GRU])
 
 
-class TextRNN(Classifier):
-    """Implement TextRNN, contains LSTM，BiLSTM，GRU，BiGRU
-    Reference: "Effective LSTMs for Target-Dependent Sentiment Classification"
-               "Bidirectional LSTM-CRF Models for Sequence Tagging"
-               "Generative and discriminative text classification
-                with recurrent neural networks"
+class RNN(tf.keras.Model):
     """
+    One layer rnn.
+    """
+    def __init__(self, config):
+        super(RNN, self).__init__()
+        self.rnn_type = config.TextRNN.rnn_type
+        self.num_layers = config.TextRNN.num_layers
+        self.bidirectional = config.TextRNN.bidirectional
+        self.embedding = keras.layers.Embedding(config.TextRNN.input_dim, config.TextRNN.embedding_dimension,
+                                                input_length=config.TextRNN.input_length)
 
-    def __init__(self, dataset, config):
-        super(TextRNN, self).__init__(dataset, config)
-        self.rnn = RNN(
-            config.embedding.dimension, config.TextRNN.hidden_dimension,
-            num_layers=config.TextRNN.num_layers, batch_first=True,
-            bidirectional=config.TextRNN.bidirectional,
-            rnn_type=config.TextRNN.rnn_type)
-        hidden_dimension = config.TextRNN.hidden_dimension
-        if config.TextRNN.bidirectional:
-            hidden_dimension *= 2
-        self.sum_attention = SumAttention(hidden_dimension,
-                                          config.TextRNN.attention_dimension,
-                                          config.device)
-        self.linear = torch.nn.Linear(hidden_dimension, len(dataset.label_map))
-        self.dropout = torch.nn.Dropout(p=config.train.hidden_layer_dropout)
-
-    def get_parameter_optimizer_dict(self):
-        params = super(TextRNN, self).get_parameter_optimizer_dict()
-        params.append({'params': self.rnn.parameters()})
-        params.append({'params': self.linear.parameters()})
-        return params
-
-    def update_lr(self, optimizer, epoch):
-        if epoch > self.config.train.num_epochs_static_embedding:
-            for param_group in optimizer.param_groups[:2]:
-                param_group["lr"] = self.config.optimizer.learning_rate
-        else:
-            for param_group in optimizer.param_groups[:2]:
-                param_group["lr"] = 0.0
-
-    def forward(self, batch):
-        if self.config.feature.feature_names[0] == "token":
-            embedding = self.token_embedding(
-                batch[cDataset.DOC_TOKEN].to(self.config.device))
-            length = batch[cDataset.DOC_TOKEN_LEN].to(self.config.device)
-        else:
-            embedding = self.char_embedding(
-                batch[cDataset.DOC_CHAR].to(self.config.device))
-            length = batch[cDataset.DOC_CHAR_LEN].to(self.config.device)
-        output, last_hidden = self.rnn(embedding, length)
-
-        doc_embedding_type = self.config.TextRNN.doc_embedding_type
-        if doc_embedding_type == DocEmbeddingType.AVG:
-            doc_embedding = torch.sum(output, 1) / length.unsqueeze(1)
-        elif doc_embedding_type == DocEmbeddingType.ATTENTION:
-            doc_embedding = self.sum_attention(output)
-        elif doc_embedding_type == DocEmbeddingType.LAST_HIDDEN:
-            doc_embedding = last_hidden
+        if self.rnn_type == RNNType.LSTM:
+            if self.bidirectional:
+                self.rnn = tf.keras.layers.Bidirectional(
+                    tf.keras.layers.LSTM(config.TextRNN.hidden_dimension,
+                                         use_bias=config.TextRNN.use_bias,
+                                         activation=config.TextRNN.activation))
+            else:
+                self.rnn = tf.keras.layers.LSTM(config.TextRNN.hidden_dimension,
+                                                use_bias=config.TextRNN.use_bias,
+                                                activation=config.TextRNN.activation)
+        elif self.rnn_type == RNNType.GRU:
+            if self.bidirectional:
+                self.rnn = tf.keras.layers.Bidirectional(
+                    tf.keras.layers.GRU(config.TextRNN.hidden_dimension,
+                                        use_bias=config.TextRNN.use_bias,
+                                        activation=config.TextRNN.activation))
+            else:
+                self.rnn = tf.keras.layers.GRU(config.TextRNN.hidden_dimension,
+                                               use_bias=config.TextRNN.use_bias,
+                                               activation=config.TextRNN.activation)
+        elif self.rnn_type == RNNType.RNN:
+            if self.bidirectional:
+                self.rnn = tf.keras.layers.Bidirectional(
+                     tf.keras.layers.SimpleRNN(config.TextRNN.hidden_dimension,
+                                               use_bias=config.TextRNN.use_bias,
+                                               activation=config.TextRNN.activation))
+            else:
+                self.rnn = tf.keras.layers.SimpleRNN(config.TextRNN.hidden_dimension,
+                                                     use_bias=config.TextRNN.use_bias,
+                                                     activation=config.TextRNN.activation)
         else:
             raise TypeError(
                 "Unsupported rnn init type: %s. Supported rnn type is: %s" % (
-                    doc_embedding_type, DocEmbeddingType.str()))
+                    config.TextRNN.rnn_type, RNNType.str()))
+        self.fc = keras.layers.Dense(config.TextCNN.num_classes)
 
-        return self.dropout(self.linear(doc_embedding))
+    def call(self, inputs, training=None, mask=None):
+
+        print('inputs', inputs)
+        # [b, sentence len] => [b, sentence len, word embedding]
+        x = self.embedding(inputs)
+        print('embedding', x)
+        x = self.rnn(x)
+        print('rnn', x)
+
+        x = self.fc(x)
+        print(x.shape)
+
+        return x
+
+
