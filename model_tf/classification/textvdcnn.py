@@ -38,9 +38,9 @@ class BasicBlock(keras.layers.Layer):
         if pool_type == 'max':
             self.pooling = keras.layers.MaxPooling1D(pool_size=3, strides=2, padding='SAME')
         elif pool_type == 'k-max':
-            self.pooling = k_max_pooling(top_k=int(K.int_shape(inputs)[1] / 2))
+            self.pooling = k_max_pooling()
         elif pool_type == 'conv':
-            self.pooling = keras.layers.Conv1D(kernel_size=3, strides=2, padding='SAME')
+            self.pooling = keras.layers.Conv1D(kernel_size=3, strides=2)
 
 
 
@@ -68,28 +68,28 @@ class BasicBlock(keras.layers.Layer):
 
         return output
 
-        def downsampling(inputs, pool_type='max'):
-            """
-                In addition, downsampling with stride 2 essentially doubles the effective coverage
-                (i.e., coverage in the original document) of the convolution kernel;
-                therefore, after going through downsampling L times,
-                associations among words within a distance in the order of 2L can be represented.
-                Thus, deep pyramid CNN is computationally efﬁcient for representing long-range associations
-                and so more global information.
-                参考: https://github.com/zonetrooper32/VDCNN/blob/keras_version/vdcnn.py
-            :param inputs: tensor,
-            :param pool_type: str, select 'max', 'k-max' or 'conv'
-            :return: tensor,
-            """
-            if pool_type == 'max':
-                output = MaxPooling1D(pool_size=3, strides=2, padding='SAME')(inputs)
-            elif pool_type == 'k-max':
-                output = k_max_pooling(top_k=int(K.int_shape(inputs)[1] / 2))(inputs)
-            elif pool_type == 'conv':
-                output = Conv1D(kernel_size=3, strides=2, padding='SAME')(inputs)
-            else:
-                output = MaxPooling1D(pool_size=3, strides=2, padding='SAME')(inputs)
-            return output
+    def downsampling(inputs, pool_type='max'):
+        """
+            In addition, downsampling with stride 2 essentially doubles the effective coverage
+            (i.e., coverage in the original document) of the convolution kernel;
+            therefore, after going through downsampling L times,
+            associations among words within a distance in the order of 2L can be represented.
+            Thus, deep pyramid CNN is computationally efﬁcient for representing long-range associations
+            and so more global information.
+            参考: https://github.com/zonetrooper32/VDCNN/blob/keras_version/vdcnn.py
+        :param inputs: tensor,
+        :param pool_type: str, select 'max', 'k-max' or 'conv'
+        :return: tensor,
+        """
+        if pool_type == 'max':
+            output = MaxPooling1D(pool_size=3, strides=2, padding='SAME')(inputs)
+        elif pool_type == 'k-max':
+            output = k_max_pooling(top_k=int(K.int_shape(inputs)[1] / 2))(inputs)
+        elif pool_type == 'conv':
+            output = Conv1D(kernel_size=3, strides=2, padding='SAME')(inputs)
+        else:
+            output = MaxPooling1D(pool_size=3, strides=2, padding='SAME')(inputs)
+        return output
 
 class TextVDCNN(keras.Model):
     def __init__(self, dataset, config):

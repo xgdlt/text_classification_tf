@@ -17,7 +17,6 @@ import math
 import tensorflow as tf
 from tensorflow import keras
 
-from model_tf.model_util import init_tensor
 class k_max_pooling(keras.layers.Layer):
     """
         paper:        http://www.aclweb.org/anthology/P14-1062
@@ -28,16 +27,15 @@ class k_max_pooling(keras.layers.Layer):
             其中k为预先选定的设置的最大的K个值，s为文本最大长度，L为第几个卷积层的深度（单个卷积到连接层等）
         github tf实现可以参考: https://github.com/lpty/classifier/blob/master/a04_dcnn/model.py
     """
-    def __init__(self, top_k=8, **kwargs):
-        self.top_k = top_k
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def build(self, input_shape):
         super().build(input_shape)
 
-    def call(self, inputs):
+    def call(self, inputs, top_k):
         inputs_reshape = tf.transpose(inputs, perm=[0, 2, 1])
-        pool_top_k = tf.nn.top_k(input=inputs_reshape, k=self.top_k, sorted=False).values
+        pool_top_k = tf.nn.top_k(input=inputs_reshape, k=top_k, sorted=False).values
         pool_top_k_reshape = tf.transpose(pool_top_k, perm=[0, 2, 1])
         return pool_top_k_reshape
 
