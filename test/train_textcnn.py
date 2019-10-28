@@ -1,7 +1,7 @@
 import  os
 import  tensorflow as tf
 import  numpy as np
-from model_tf.classification import textcnn
+from model_tf.classification import textcnn,textswem
 from    tensorflow import keras
 from config import Config
 import matplotlib.pyplot as plt
@@ -35,7 +35,7 @@ def main():
     batch_size = 32
     epochs = 2
 
-    model = textcnn.TextCNN(config)
+    model = textswem.SWEM(config)
 
     model.compile(optimizer=keras.optimizers.Adam(0.001),
                   loss=keras.losses.BinaryCrossentropy(from_logits=True),

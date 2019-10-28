@@ -15,15 +15,83 @@ the License.
 # Implement model_tf of "Very deep convolutional networks for text classification"
 # which can be seen at "http://www.aclweb.org/anthology/E17-1104"
 
-import torch
-
-import numpy as np
-
-from dataset.classification_dataset import ClassificationDataset as cDataset
-from model_tf.classification.classifier import Classifier
+import tensorflow as tf
+from tensorflow import keras
+from model_tf.layers import k_max_pooling
+from util import Type
 
 
-class TextVDCNN(Classifier):
+
+
+class BasicBlock(keras.layers.Layer):
+
+    def __init__(self, filter_num=64, stride=1,shortcut=True, pool_type= "conv"):
+        super(BasicBlock, self).__init__()
+        self.shortcut = shortcut
+        self.conv1 = keras.layers.Conv1D(filters=filter_num, kernel_size=3, strides=stride, padding='same')
+        self.bn1 = keras.layers.BatchNormalization()
+        self.relu = keras.layers.Activation('relu')
+
+        self.conv2 = keras.layers.Conv1D(filters=filter_num, kernel_size=3, strides=stride, padding='same')
+        self.bn2 = keras.layers.BatchNormalization()
+
+        if pool_type == 'max':
+            self.pooling = keras.layers.MaxPooling1D(pool_size=3, strides=2, padding='SAME')
+        elif pool_type == 'k-max':
+            self.pooling = k_max_pooling(top_k=int(K.int_shape(inputs)[1] / 2))
+        elif pool_type == 'conv':
+            self.pooling = keras.layers.Conv1D(kernel_size=3, strides=2, padding='SAME')
+
+
+
+        if stride != 1:
+            self.downsample = keras.Sequential()
+            self.downsample.add(keras.layers.Conv2D(filter_num, (1, 1), strides=stride))
+        else:
+            self.downsample = lambda x:x
+
+
+    def call(self, inputs, training=None):
+
+        # [b, h, w, c]
+        out = self.conv1(inputs)
+        out = self.bn1(out,training=training)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out,training=training)
+
+        identity = self.downsample(inputs)
+
+        output = keras.layers.add([out, identity])
+        output = tf.nn.relu(output)
+
+        return output
+
+        def downsampling(inputs, pool_type='max'):
+            """
+                In addition, downsampling with stride 2 essentially doubles the effective coverage
+                (i.e., coverage in the original document) of the convolution kernel;
+                therefore, after going through downsampling L times,
+                associations among words within a distance in the order of 2L can be represented.
+                Thus, deep pyramid CNN is computationally efﬁcient for representing long-range associations
+                and so more global information.
+                参考: https://github.com/zonetrooper32/VDCNN/blob/keras_version/vdcnn.py
+            :param inputs: tensor,
+            :param pool_type: str, select 'max', 'k-max' or 'conv'
+            :return: tensor,
+            """
+            if pool_type == 'max':
+                output = MaxPooling1D(pool_size=3, strides=2, padding='SAME')(inputs)
+            elif pool_type == 'k-max':
+                output = k_max_pooling(top_k=int(K.int_shape(inputs)[1] / 2))(inputs)
+            elif pool_type == 'conv':
+                output = Conv1D(kernel_size=3, strides=2, padding='SAME')(inputs)
+            else:
+                output = MaxPooling1D(pool_size=3, strides=2, padding='SAME')(inputs)
+            return output
+
+class TextVDCNN(keras.Model):
     def __init__(self, dataset, config):
         """all convolutional blocks
         4 kinds of conv blocks, which #feature_map are 64,128,256,512
@@ -45,21 +113,40 @@ class TextVDCNN(Classifier):
         self.num_kernels = [64, 128, 256, 512]
 
         self.vdcnn_depth = config.TextVDCNN.vdcnn_depth
-        self.first_conv = torch.nn.Conv1d(config.embedding.dimension, 64, 3,
-                                          padding=2)
+        self.first_conv = keras.layers.Conv1D(filters=64, kernel_size=3,
+                            strides=1, padding='SAME', activation='relu')
+
+
         last_num_kernel = 64
-        self.convs = torch.nn.ModuleList()
-        self.batch_norms = torch.nn.ModuleList()
+        self.convs = []
+        self.batch_norms = []
         for i, num_kernel in enumerate(self.num_kernels):
-            tmp_convs = torch.nn.ModuleList()
-            tmp_batch_norms = torch.nn.ModuleList()
-            for _ in range(0, self.vdcnn_num_convs[self.vdcnn_depth][i]):
+            tmp_convs = []
+            tmp_batch_norms = []
+            for j in range(0, self.vdcnn_num_convs[self.vdcnn_depth][i]):
                 tmp_convs.append(
-                    torch.nn.Conv1d(last_num_kernel, num_kernel, 3, padding=2))
-                tmp_batch_norms.append(torch.nn.BatchNorm1d(num_kernel))
+                    keras.layers.Conv1d(filters=num_kernel, kernel_size=3, padding='SAME',
+                                        activation='relu',name='depth_%d_conv1d_%d' % (i,j)))
+                tmp_batch_norms.append(tf.keras.layers.BatchNormalization(name='depth_%d_BatchNormalization_%d' % (i,j)))
             last_num_kernel = num_kernel
             self.convs.append(tmp_convs)
             self.batch_norms.append(tmp_batch_norms)
+
+            self.shortcut_convs = []
+            self.shortcut_batch_norms = []
+            if config.TextVDCNN.shortcut:
+                shortcut_conv = keras.layers.Conv1D(filters=num_kernel, kernel_size=1, strides=2, name='shortcut_conv1d_%d' % i)
+                self.shortcut_convs.append(shortcut_conv)
+                shortcut_batch_norm = tf.keras.layers.BatchNormalization(name='shortcut_batch_normalization_%d' % i)
+                self.shortcut_batch_norms.append(shortcut_batch_norm)
+
+
+            if pool_type is not None:
+                out = Conv1D(filters=2 * filters, kernel_size=1, strides=1, padding='same', name='1_1_conv_%d' % stage)(
+                    out)
+                out = Batch
+
+        self.relu = tf.keras.layers.ReLU()
 
         self.top_k = self.config.TextVDCNN.top_k_max_pooling
         hidden_size = self.num_kernels[-1] * self.top_k

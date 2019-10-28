@@ -99,6 +99,13 @@
     "attention_dimension": 16,
     "bidirectional": true
   },
+  "TextSWEM": {
+    "input_dim":10000,
+    "embedding_dimension": 100,
+    "input_length": 80,
+    "num_classes": 1,
+    "type": "concat"
+  },
   "DRNN": {
     "hidden_dimension": 5,
     "window_size": 3,
