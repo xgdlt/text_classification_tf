@@ -12,44 +12,27 @@ or implied. See the License for thespecific language governing permissions and l
 the License.
 """
 
-import torch
-import torch.nn.functional as F
+import tensorflow as tf
+from tensorflow import keras
  
 from dataset.classification_dataset import ClassificationDataset as cDataset
 from model_tf.classification.classifier import Classifier
 
 
-class DPCNN(Classifier):
+class DPCNN(keras.Model):
     """
     Reference:
         Deep Pyramid Convolutional Neural Networks for Text Categorization
     """
 
-    def __init__(self, dataset, config):
-        super(DPCNN, self).__init__(dataset, config)
-        self.num_kernels = config.DPCNN.num_kernels
-        self.pooling_stride = config.DPCNN.pooling_stride
-        self.kernel_size = config.DPCNN.kernel_size
-        self.radius = int(self.kernel_size / 2)
-        assert self.kernel_size % 2 == 1, "DPCNN kernel should be odd!"
-        self.convert_conv = torch.nn.Sequential(
-            torch.nn.Conv1d(
-                config.embedding.dimension, self.num_kernels,
-                self.kernel_size, padding=self.radius)
-        )
+    def __init__(self,  config):
+        super(DPCNN, self).__init__(config)
+        self.embedding = keras.layers.Embedding(config.DPCNN.input_dim, config.DPCNN.embedding_dimension,
+                                                input_length=config.DPCNN.input_length)
+        self.dropout1d = keras.layers.SpatialDropout1D(config.DPCNN.dropout)
+        self.conv_1 = keras.layers.Conv1D(filters=config.DPCNN.filters, kernel_size=1, padding='SAME', \
+                                          kernel_regularizer=keras.regularizers.l2(config.DPCNN.l2), activation="prelu")
 
-        self.convs = torch.nn.ModuleList([torch.nn.Sequential(
-            torch.nn.ReLU(),
-            torch.nn.Conv1d(
-                self.num_kernels, self.num_kernels,
-                self.kernel_size, padding=self.radius),
-            torch.nn.ReLU(),
-            torch.nn.Conv1d(
-                self.num_kernels, self.num_kernels,
-                self.kernel_size, padding=self.radius)
-        ) for _ in range(config.DPCNN.blocks + 1)])
-
-        self.linear = torch.nn.Linear(self.num_kernels, len(dataset.label_map))
 
     def get_parameter_optimizer_dict(self):
         params = super(DPCNN, self).get_parameter_optimizer_dict()

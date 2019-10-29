@@ -18,7 +18,7 @@ from tensorflow import keras
 
 class TextCNN(tf.keras.Model):
     def __init__(self, config):
-        super(TextCNN, self).__init__( )
+        super(TextCNN, self).__init__()
 
         self.embedding = keras.layers.Embedding(config.TextCNN.input_dim, config.TextCNN.embedding_dimension,
                                                 input_length=config.TextCNN.input_length)

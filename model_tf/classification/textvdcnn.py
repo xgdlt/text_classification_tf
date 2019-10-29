@@ -67,7 +67,7 @@ class ConvBlock(keras.layers.Layer):
 
         if self.shortcut:
             conv = self.shortcut_conv(inputs)
-            bn_out = self.shortcut_bn(conv)
+            bn_out = self.shortcut_bn(conv,training=training)
             output = self.downsampl(out)
             out = keras.layers.add([output, bn_out])
         else:
@@ -76,7 +76,7 @@ class ConvBlock(keras.layers.Layer):
 
         if self.pool_type is not None:  # filters翻倍
             out = self.pool_conv(out)
-            out = self.pool_bn(out)
+            out = self.pool_bn(out,training=training)
 
         return out
 

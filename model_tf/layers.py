@@ -188,6 +188,35 @@ class BasicBlock(keras.layers.Layer):
 
         return out
 
+
+class ResCNN(keras.layers.Layer):
+
+    def __init__(self, filters=64, kernel_size=1, stride=1, shortcut=True, pool_type=None):
+        super(ResCNN, self).__init__()
+        self.shortcut = shortcut
+        self.pool_type = pool_type
+        self.conv1 = keras.layers.Conv1D(filters=filters, kernel_size=kernel_size, strides=stride, padding='same')
+        self.bn1 = keras.layers.BatchNormalization()
+        self.relu = keras.layers.Activation('relu')
+
+        self.conv2 = keras.layers.Conv1D(filters=filter_num, kernel_size=3, strides=stride, padding='same')
+        self.bn2 = keras.layers.BatchNormalization()
+
+
+    def call(self, inputs, training=None):
+
+        # [b, h, w, c]
+        out = self.conv1(inputs)
+        out = self.bn1(out, training=training)
+        #out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out, training=training)
+        out = self.relu(out)
+
+
+        return out
+
     def downsampling(self,filter_num=64, pool_type='conv'):
         """
             In addition, downsampling with stride 2 essentially doubles the effective coverage
