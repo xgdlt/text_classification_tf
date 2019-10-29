@@ -30,6 +30,8 @@ def get_activation(activation_string):
     act = activation_string.lower()
     if act == "linear":
         return None
+    elif act == "sogmoid":
+        return tf.nn.sigmoid
     elif act == "relu":
         return tf.nn.relu
     elif act == "gelu":

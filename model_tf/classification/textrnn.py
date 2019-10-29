@@ -73,7 +73,7 @@ class RNN(tf.keras.Model):
             raise TypeError(
                 "Unsupported rnn init type: %s. Supported rnn type is: %s" % (
                     config.TextRNN.rnn_type, RNNType.str()))
-        self.fc = keras.layers.Dense(config.TextCNN.num_classes)
+        self.fc = keras.layers.Dense(config.TextCNN.num_classes,activation='softmax')
 
     def call(self, inputs, training=None, mask=None):
 

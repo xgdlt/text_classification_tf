@@ -16,7 +16,7 @@ import codecs as cs
 
 
 from util import Type
-from model_tf.optimizer import BertAdam
+
 
 class ActivationType(Type):
     """Standard names for activation
@@ -59,56 +59,6 @@ class FAN_MODE(Type):
     def str(self):
         return ",".join([self.FAN_IN, self.FAN_OUT])
 
-
-def init_tensor(tensor, init_type=InitType.XAVIER_UNIFORM, low=0, high=1,
-                mean=0, std=1, activation_type=ActivationType.NONE,
-                fan_mode=FAN_MODE.FAN_IN, negative_slope=0):
-    """Init torch.Tensor
-    Args:
-        tensor: Tensor to be initialized.
-        init_type: Init type, candidate can be found in InitType.
-        low: The lower bound of the uniform distribution,
-            useful when init_type is uniform.
-        high: The upper bound of the uniform distribution,
-            useful when init_type is uniform.
-        mean: The mean of the normal distribution,
-            useful when init_type is normal.
-        std: The standard deviation of the normal distribution,
-            useful when init_type is normal.
-        activation_type: For xavier and kaiming init,
-            coefficient is calculate according the activation_type.
-        fan_mode: For kaiming init, fan mode is needed
-        negative_slope: For kaiming init,
-            coefficient is calculate according the negative_slope.
-    Returns:
-    """
-    if init_type == InitType.UNIFORM:
-        return torch.nn.init.uniform_(tensor, a=low, b=high)
-    elif init_type == InitType.NORMAL:
-        return torch.nn.init.normal_(tensor, mean=mean, std=std)
-    elif init_type == InitType.XAVIER_UNIFORM:
-        return torch.nn.init.xavier_uniform_(
-            tensor, gain=torch.nn.init.calculate_gain(activation_type))
-    elif init_type == InitType.XAVIER_NORMAL:
-        return torch.nn.init.xavier_normal_(
-            tensor, gain=torch.nn.init.calculate_gain(activation_type))
-    elif init_type == InitType.KAIMING_UNIFORM:
-        return torch.nn.init.kaiming_uniform_(
-            tensor, a=negative_slope, mode=fan_mode,
-            nonlinearity=activation_type)
-    elif init_type == InitType.KAIMING_NORMAL:
-        return torch.nn.init.kaiming_normal_(
-            tensor, a=negative_slope, mode=fan_mode,
-            nonlinearity=activation_type)
-    elif init_type == InitType.ORTHOGONAL:
-        return torch.nn.init.orthogonal_(
-            tensor, gain=torch.nn.init.calculate_gain(activation_type))
-    else:
-        raise TypeError(
-            "Unsupported tensor init type: %s. Supported init type is: %s" % (
-                init_type, InitType.str()))
-
-
 class OptimizerType(Type):
     """Standard names for optimizer
     """
@@ -118,28 +68,6 @@ class OptimizerType(Type):
 
     def str(self):
         return ",".join([self.ADAM, self.ADADELTA])
-
-
-def get_optimizer(config, params):
-    params = params.get_parameter_optimizer_dict()
-    if config.optimizer.optimizer_type == OptimizerType.ADAM:
-        return torch.optim.Adam(lr=config.optimizer.learning_rate,
-                                params=params)
-    elif config.optimizer.optimizer_type == OptimizerType.ADADELTA:
-        return torch.optim.Adadelta(
-            lr=config.optimizer.learning_rate,
-            rho=config.optimizer.adadelta_decay_rate,
-            eps=config.optimizer.adadelta_epsilon,
-            params=params)
-    elif config.optimizer.optimizer_type == OptimizerType.BERT_ADAM:
-        return BertAdam(params,
-                        lr=config.optimizer.learning_rate,
-                        weight_decay=0, max_grad_norm=-1)
-    else:
-        raise TypeError(
-            "Unsupported tensor optimizer type: %s.Supported optimizer "
-            "type is: %s" % (config.optimizer_type, OptimizerType.str()))
-
 
 def get_hierar_relations(hierar_taxonomy, label_map):
     """ get parent-children relationships from given hierar_taxonomy
@@ -157,3 +85,21 @@ def get_hierar_relations(hierar_taxonomy, label_map):
                 for child_label in children_label if child_label in label_map]
             hierar_relations[parent_label_id] = children_label_ids
     return hierar_relations
+
+
+
+def select_k(len_max, length_conv, length_curr, k_con=3):
+    """
+        dynamic k max pooling中的k获取
+    :param len_max:int, max length of input sentence
+    :param length_conv: int, deepth of all convolution layer
+    :param length_curr: int, deepth of current convolution layer
+    :param k_con: int, k of constant
+    :return: int, return
+    """
+    if length_conv >= length_curr:
+        k_ml = int(len_max * (length_conv-length_curr) / length_conv)
+        k = max(k_ml, k_con)
+    else:
+        k = k_con
+    return k

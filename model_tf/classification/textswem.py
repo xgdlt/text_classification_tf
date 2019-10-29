@@ -39,7 +39,7 @@ class SWEM(tf.keras.Model):
 
         self.embedding_max = keras.layers.GlobalMaxPool1D()
 
-        self.fc = keras.layers.Dense(config.TextSWEM.num_classes)
+        self.fc = keras.layers.Dense(config.TextSWEM.num_classes,activation='softmax')
 
     def call(self, inputs,training=True, mask=None):
         x = self.embedding(inputs)

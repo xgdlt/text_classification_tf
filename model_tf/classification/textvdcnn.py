@@ -23,11 +23,13 @@ from util import Type
 
 
 
-class BasicBlock(keras.layers.Layer):
+class ConvBlock(keras.layers.Layer):
 
-    def __init__(self, filter_num=64, stride=1,shortcut=True, pool_type= "conv"):
-        super(BasicBlock, self).__init__()
+
+    def __init__(self, filter_num=64, stride=1,shortcut=True, pool_type= None):
+        super(ConvBlock, self).__init__()
         self.shortcut = shortcut
+        self.pool_type = pool_type
         self.conv1 = keras.layers.Conv1D(filters=filter_num, kernel_size=3, strides=stride, padding='same')
         self.bn1 = keras.layers.BatchNormalization()
         self.relu = keras.layers.Activation('relu')
@@ -35,20 +37,22 @@ class BasicBlock(keras.layers.Layer):
         self.conv2 = keras.layers.Conv1D(filters=filter_num, kernel_size=3, strides=stride, padding='same')
         self.bn2 = keras.layers.BatchNormalization()
 
+        if shortcut:
+            self.shortcut_conv =  keras.layers.Conv1D(filters=filter_num, kernel_size=1, strides=2, padding='same')
+            self.shortcut_bn =  keras.layers.BatchNormalization()
+
         if pool_type == 'max':
-            self.pooling = keras.layers.MaxPooling1D(pool_size=3, strides=2, padding='SAME')
+            self.downsampl = keras.layers.MaxPooling1D(pool_size=3, strides=2, padding='SAME')
         elif pool_type == 'k-max':
-            self.pooling = k_max_pooling()
+            self.downsampl = k_max_pooling()
         elif pool_type == 'conv':
-            self.pooling = keras.layers.Conv1D(kernel_size=3, strides=2)
+            self.downsampl = keras.layers.Conv1D(filters=filter_num,kernel_size=3, strides=2,padding='SAME')
 
+        #self.downsampl = self.downsampling(pool_type)
 
-
-        if stride != 1:
-            self.downsample = keras.Sequential()
-            self.downsample.add(keras.layers.Conv2D(filter_num, (1, 1), strides=stride))
-        else:
-            self.downsample = lambda x:x
+        if pool_type is not None: # filters翻倍
+            self.pool_conv = keras.layers.Conv1D(filters=filter_num*2, kernel_size=1, strides=1, padding='SAME')
+            self.pool_bn = keras.layers.BatchNormalization()
 
 
     def call(self, inputs, training=None):
@@ -61,14 +65,22 @@ class BasicBlock(keras.layers.Layer):
         out = self.conv2(out)
         out = self.bn2(out,training=training)
 
-        identity = self.downsample(inputs)
+        if self.shortcut:
+            conv = self.shortcut_conv(inputs)
+            bn_out = self.shortcut_bn(conv)
+            output = self.downsampl(out)
+            out = keras.layers.add([output, bn_out])
+        else:
+            out =  self.relu(out)
+            out = self.downsampl(out)
 
-        output = keras.layers.add([out, identity])
-        output = tf.nn.relu(output)
+        if self.pool_type is not None:  # filters翻倍
+            out = self.pool_conv(out)
+            out = self.pool_bn(out)
 
-        return output
+        return out
 
-    def downsampling(inputs, pool_type='max'):
+    def downsampling(self,filter_num=64, pool_type='conv'):
         """
             In addition, downsampling with stride 2 essentially doubles the effective coverage
             (i.e., coverage in the original document) of the convolution kernel;
@@ -82,17 +94,46 @@ class BasicBlock(keras.layers.Layer):
         :return: tensor,
         """
         if pool_type == 'max':
-            output = MaxPooling1D(pool_size=3, strides=2, padding='SAME')(inputs)
+            pooling = keras.layers.MaxPooling1D(pool_size=3, strides=2, padding='SAME')
         elif pool_type == 'k-max':
-            output = k_max_pooling(top_k=int(K.int_shape(inputs)[1] / 2))(inputs)
+            pooling = k_max_pooling()
         elif pool_type == 'conv':
-            output = Conv1D(kernel_size=3, strides=2, padding='SAME')(inputs)
-        else:
-            output = MaxPooling1D(pool_size=3, strides=2, padding='SAME')(inputs)
-        return output
+            pooling = keras.layers.Conv1D(filters=filter_num,kernel_size=3, strides=2, padding='SAME')
+
+        return pooling
+
+
+
+class IdentityBlock(keras.layers.Layer):
+
+
+    def __init__(self, filter_num=64,kernel_size=3, stride=1,shortcut=True):
+        super(IdentityBlock, self).__init__()
+        self.shortcut = shortcut
+        self.conv1 = keras.layers.Conv1D(filters=filter_num, kernel_size=kernel_size, strides=stride, padding='same')
+        self.bn1 = keras.layers.BatchNormalization()
+        self.relu = keras.layers.Activation('relu')
+
+        self.conv2 = keras.layers.Conv1D(filters=filter_num, kernel_size=kernel_size, strides=stride, padding='same')
+        self.bn2 = keras.layers.BatchNormalization()
+
+    def call(self, inputs, training=None):
+
+        # [b, h, w, c]
+        out = self.conv1(inputs)
+        out = self.bn1(out,training=training)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out,training=training)
+
+        if self.shortcut:
+            out = keras.layers.add([out, inputs])
+            out = self.relu(out)
+        return out
 
 class TextVDCNN(keras.Model):
-    def __init__(self, dataset, config):
+    def __init__(self,  config):
         """all convolutional blocks
         4 kinds of conv blocks, which #feature_map are 64,128,256,512
         Depth:             9  17 29 49
@@ -103,7 +144,7 @@ class TextVDCNN(keras.Model):
         conv block 64:     2  4  10 16
         First conv. layer: 1  1  1  1
         """
-        super(TextVDCNN, self).__init__(dataset, config)
+        super(TextVDCNN, self).__init__()
 
         self.vdcnn_num_convs = {}
         self.vdcnn_num_convs[9] = [2, 2, 2, 2]
@@ -111,116 +152,71 @@ class TextVDCNN(keras.Model):
         self.vdcnn_num_convs[29] = [10, 10, 4, 4]
         self.vdcnn_num_convs[49] = [16, 16, 10, 6]
         self.num_kernels = [64, 128, 256, 512]
-
+        self.config = config
         self.vdcnn_depth = config.TextVDCNN.vdcnn_depth
+        self.embedding = keras.layers.Embedding(config.TextVDCNN.input_dim, config.TextVDCNN.embedding_dimension,
+                                                input_length=config.TextVDCNN.input_length)
+
         self.first_conv = keras.layers.Conv1D(filters=64, kernel_size=3,
                             strides=1, padding='SAME', activation='relu')
 
 
         last_num_kernel = 64
-        self.convs = []
-        self.batch_norms = []
+        self.identity_blocks = []
+        self.con_blocks = []
         for i, num_kernel in enumerate(self.num_kernels):
-            tmp_convs = []
-            tmp_batch_norms = []
-            for j in range(0, self.vdcnn_num_convs[self.vdcnn_depth][i]):
-                tmp_convs.append(
-                    keras.layers.Conv1d(filters=num_kernel, kernel_size=3, padding='SAME',
-                                        activation='relu',name='depth_%d_conv1d_%d' % (i,j)))
-                tmp_batch_norms.append(tf.keras.layers.BatchNormalization(name='depth_%d_BatchNormalization_%d' % (i,j)))
-            last_num_kernel = num_kernel
-            self.convs.append(tmp_convs)
-            self.batch_norms.append(tmp_batch_norms)
-
-            self.shortcut_convs = []
-            self.shortcut_batch_norms = []
-            if config.TextVDCNN.shortcut:
-                shortcut_conv = keras.layers.Conv1D(filters=num_kernel, kernel_size=1, strides=2, name='shortcut_conv1d_%d' % i)
-                self.shortcut_convs.append(shortcut_conv)
-                shortcut_batch_norm = tf.keras.layers.BatchNormalization(name='shortcut_batch_normalization_%d' % i)
-                self.shortcut_batch_norms.append(shortcut_batch_norm)
-
-
-            if pool_type is not None:
-                out = Conv1D(filters=2 * filters, kernel_size=1, strides=1, padding='same', name='1_1_conv_%d' % stage)(
-                    out)
-                out = Batch
+            tmp_identity_blocks = []
+            for j in range(0, self.vdcnn_num_convs[self.vdcnn_depth][i]-1):
+                tmp_identity_blocks.append(IdentityBlock(filter_num=num_kernel))
+            self.identity_blocks.append(tmp_identity_blocks)
+            self.con_blocks.append(ConvBlock(filter_num=num_kernel, pool_type=self.config.TextVDCNN.pool_type))
 
         self.relu = tf.keras.layers.ReLU()
 
         self.top_k = self.config.TextVDCNN.top_k_max_pooling
-        hidden_size = self.num_kernels[-1] * self.top_k
-        self.linear1 = torch.nn.Linear(hidden_size, 2048)
-        self.linear2 = torch.nn.Linear(2048, 2048)
-        self.linear = torch.nn.Linear(2048, len(dataset.label_map))
-        self.dropout = torch.nn.Dropout(p=config.train.hidden_layer_dropout)
+        self.k_max_pooling = k_max_pooling()
+        self.flatten = keras.layers.Flatten()
+        self.fc1 = keras.layers.Dense(2048, activation="relu")
+        self.fc2 = keras.layers.Dense(2048, activation="relu")
+        self.fc = keras.layers.Dense(config.TextVDCNN.num_classes)
 
-    def get_parameter_optimizer_dict(self):
-        params = list()
-        params.append({'params': self.token_embedding.parameters()})
-        params.append({'params': self.char_embedding.parameters()})
-        params.append({'params': self.first_conv.parameters()})
-        for i in range(0, len(self.num_kernels)):
-            params.append({'params': self.convs[i].parameters()})
-            params.append({'params': self.batch_norms[i].parameters()})
-        params.append({'params': self.linear1.parameters()})
-        params.append({'params': self.linear2.parameters()})
-        params.append({'params': self.linear3.parameters()})
-        return params
 
-    def update_lr(self, optimizer, epoch):
-        """Update lr
-        """
-        if epoch > self.config.train.num_epochs_static_embedding:
-            for param_group in optimizer.param_groups[:2]:
-                param_group["lr"] = self.config.optimizer.learning_rate
-        else:
-            for param_group in optimizer.param_groups[:2]:
-                param_group["lr"] = 0
 
-    def forward(self, batch):
-        def convolutional_block(inputs, num_layers, convs, batch_norms):
-            """Convolutional Block of VDCNN
-            Convolutional block contains 2 conv layers, and can be repeated
-            Temp Conv-->Batch Norm-->ReLU-->Temp Conv-->Batch Norm-->ReLU
-            """
-            hidden_layer = inputs
-            for i in range(0, num_layers):
-                batch_norm = batch_norms[i](convs[i](inputs))
-                hidden_layer = torch.nn.functional.relu(batch_norm)
-            return hidden_layer
+    def call(self, inputs, training=None, mask=None,logits_type=None):
 
-        if self.config.feature.feature_names[0] == "token":
-            embedding = self.token_embedding(
-                batch[cDataset.DOC_TOKEN].to(self.config.device))
-        else:
-            embedding = self.char_embedding(
-                batch[cDataset.DOC_CHAR].to(self.config.device))
-        embedding = embedding.transpose(1, 2)
-
+        x = self.embedding(inputs)
+        print("embedding", x)
         # first conv layer (kernel_size=3, #feature_map=64)
-        first_conv = self.first_conv(embedding)
-        first_conv = torch.nn.functional.relu(first_conv)
+        out = self.first_conv(x)
+        print("first_conv", out)
+        out = self.relu (out)
+        print("first_conv_relu", out)
 
         # all convolutional blocks
-        conv_block = first_conv
-        for i in range(0, len(self.num_kernels)):
-            conv_block = convolutional_block(
-                conv_block,
-                num_layers=self.vdcnn_num_convs[self.vdcnn_depth][i],
-                convs=self.convs[i],
-                batch_norms=self.batch_norms[i])
-            if i < len(self.num_kernels) - 1:
-                # max-pooling with stride=2
-                pool = torch.nn.functional.max_pool1d(conv_block,
-                                                      kernel_size=3, stride=2)
-            else:
-                # k-max-pooling
-                pool = torch.topk(conv_block, self.top_k)[0].view(
-                    conv_block.size(0), -1)
 
-        pool_shape = int(np.prod(pool.size()[1:]))
-        doc_embedding = torch.reshape(pool, (-1, pool_shape))
-        fc1 = self.linear1(doc_embedding)
-        fc2 = self.linear2(fc1)
-        return self.dropout(self.linear(fc2))
+        for i in range(0, len(self.num_kernels)):
+            for identity_block in self.identity_blocks[i]:
+                out = identity_block(out)
+                print("identity_block_%d", i, out)
+            out = self.con_blocks[i](out)
+            print("con_blocks_%d", i, out)
+        out = self.k_max_pooling(out, self.top_k)
+        print("k_max_pooling", out)
+
+        out = self.flatten(out)
+        print("flatten", out)
+
+        out = self.fc1(out)
+        print("fc1", out)
+
+        out = self.fc2(out)
+        print("fc2", out)
+
+        out = self.fc(out)
+        print("fc", out)
+
+        if logits_type == "softmax":
+            out = tf.nn.softmax(out)
+        elif logits_type == "sigmoid":
+            out = tf.nn.sigmoid(out)
+        return out

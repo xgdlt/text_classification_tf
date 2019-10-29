@@ -1,7 +1,7 @@
 import os
 import tensorflow as tf
 import numpy as np
-from model_tf.classification import textcnn,textrnn,textrcnn
+from model_tf.classification import textcnn,textrnn,textrcnn,textvdcnn,textdcnn
 from tensorflow import keras
 from config import Config
 import matplotlib.pyplot as plt
@@ -37,7 +37,7 @@ def main():
     config = Config(config_file="../conf/train.json")
     batch_size = 32
 
-    model = textcnn.TextCNN(config)
+    model = textdcnn.TextDCNN(config)
     #model = textrcnn.TextRCNN(config)
 
     model.compile(optimizer=keras.optimizers.Adam(0.001),
