@@ -199,7 +199,7 @@ class ResCNN(keras.layers.Layer):
         self.bn1 = keras.layers.BatchNormalization()
         self.relu = keras.layers.Activation('relu')
 
-        self.conv2 = keras.layers.Conv1D(filters=filter_num, kernel_size=3, strides=stride, padding='same')
+        self.conv2 = keras.layers.Conv1D(filters=filters, kernel_size=3, strides=stride, padding='same')
         self.bn2 = keras.layers.BatchNormalization()
 
 

@@ -150,6 +150,15 @@
     "top_k_max_pooling": 3
   },
   "DPCNN": {
+    "input_dim":10000,
+    "embedding_dimension": 100,
+    "input_length": 80,
+    "num_classes":1,
+    "l2": 1e-9,
+    "filters":64,
+    "spatial_dropout":0.2,
+    "dropout":0.5,
+    "repeat": 4,
     "kernel_size": 3,
     "pooling_stride": 2,
     "num_kernels": 16,

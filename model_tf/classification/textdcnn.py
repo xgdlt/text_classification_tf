@@ -49,6 +49,8 @@ class TextDCNN(tf.keras.Model):
         self.multil_kernel_sizes = config.TextDCNN.kernel_sizes
         self.convs = []
 
+        self.config = config
+
         for kernel_sizes in self.multil_kernel_sizes:
             conv = BasicConvBlock(input_len_max=config.TextDCNN.input_length, filters=config.TextDCNN.filters, kernel_sizes=kernel_sizes)
             self.convs.append(conv)
@@ -73,4 +75,8 @@ class TextDCNN(tf.keras.Model):
         x = self.flatten(x)
         print("flatten ", x)
         x = self.fc(x)
+        if self.config.logits_type == "softmax":
+            x = tf.nn.softmax(x)
+        elif self.config.logits_type == "sigmoid":
+            x = tf.nn.sigmoid(x)
         return x

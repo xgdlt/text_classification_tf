@@ -36,7 +36,7 @@ class TextRCNN(tf.keras.Model):
 
         self.embedding = keras.layers.Embedding(config.TextRNN.input_dim, config.TextRNN.embedding_dimension,
                                                 input_length=config.TextRNN.input_length)
-
+        self.config = config
         if config.TextRNN.rnn_type == RNNType.LSTM:
             if config.TextRNN.bidirectional:
                 self.rnn = tf.keras.layers.Bidirectional(
@@ -92,7 +92,6 @@ class TextRCNN(tf.keras.Model):
 
         self.fc = keras.layers.Dense(config.TextCNN.num_classes)
 
-        self.fc = keras.layers.Dense(config.TextCNN.num_classes)
 
     def call(self, inputs, training=None, mask=None):
 
@@ -117,7 +116,10 @@ class TextRCNN(tf.keras.Model):
         x = self.flatten(x)
         print("flatten ", x)
         x = self.fc(x)
-
+        if self.config.logits_type == "softmax":
+            x = tf.nn.softmax(x)
+        elif self.config.logits_type == "sigmoid":
+            x = tf.nn.sigmoid(x)
         return x
 
 

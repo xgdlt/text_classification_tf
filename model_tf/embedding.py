@@ -18,7 +18,6 @@ import tensorflow as tf
 from model_tf.model_util import ActivationType
 from model_tf.model_util import FAN_MODE
 from model_tf.model_util import InitType
-from model_tf.model_util import init_tensor
 from util import Logger
 from util import Type
 

@@ -38,7 +38,7 @@ class RNN(tf.keras.Model):
         self.bidirectional = config.TextRNN.bidirectional
         self.embedding = keras.layers.Embedding(config.TextRNN.input_dim, config.TextRNN.embedding_dimension,
                                                 input_length=config.TextRNN.input_length)
-
+        self.logits_type = config.logits_type
         if self.rnn_type == RNNType.LSTM:
             if self.bidirectional:
                 self.rnn = tf.keras.layers.Bidirectional(

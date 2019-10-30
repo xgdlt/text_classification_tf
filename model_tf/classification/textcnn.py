@@ -1,16 +1,10 @@
 #!usr/bin/env python
 # coding:utf-8
-"""
-Tencent is pleased to support the open source community by making NeuralClassifier available.
-Copyright (C) 2019 THL A29 Limited, a Tencent company. All rights reserved.
-Licensed under the MIT License (the "License"); you may not use this file except in compliance
-with the License. You may obtain a copy of the License at
-http://opensource.org/licenses/MIT
-Unless required by applicable law or agreed to in writing, software distributed under the License
-is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
-or implied. See the License for thespecific language governing permissions and limitations under
-the License.
-"""
+# @time     :2019/10/30 10:51
+# @author   :liteng
+# @function :tensorflow2.0 for textcnn
+# @paper: Convolutional Neural Networks for Sentence Classiﬁcation
+
 
 import tensorflow as tf
 from tensorflow import keras
@@ -19,7 +13,7 @@ from tensorflow import keras
 class TextCNN(tf.keras.Model):
     def __init__(self, config):
         super(TextCNN, self).__init__()
-
+        self.config = config
         self.embedding = keras.layers.Embedding(config.TextCNN.input_dim, config.TextCNN.embedding_dimension,
                                                 input_length=config.TextCNN.input_length)
         self.reshape = keras.layers.Reshape((config.TextCNN.input_length, config.TextCNN.embedding_dimension, 1))
@@ -58,4 +52,8 @@ class TextCNN(tf.keras.Model):
         x = self.flatten(x)
         print("flatten ", x)
         x = self.fc(x)
+        if self.config.logits_type == "softmax":
+            x = tf.nn.softmax(x)
+        elif self.config.logits_type == "sigmoid":
+            x = tf.nn.sigmoid(x)
         return x
