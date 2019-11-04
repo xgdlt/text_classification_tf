@@ -17,7 +17,7 @@ the License.
 
 import tensorflow as tf
 from tensorflow import keras
-from model_tf.layers import k_max_pooling
+from model_tf.layers.layers import k_max_pooling
 from util import Type
 
 

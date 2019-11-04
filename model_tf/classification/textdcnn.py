@@ -7,7 +7,7 @@
 
 import tensorflow as tf
 from tensorflow import keras
-from model_tf.layers import wide_convolution,dynamic_k_max_pooling,prem_fold
+from model_tf.layers.layers import wide_convolution,dynamic_k_max_pooling,prem_fold
 from model_tf.model_util import select_k
 
 
