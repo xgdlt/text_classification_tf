@@ -92,7 +92,8 @@ class TextRCNN(tf.keras.Model):
 
         self.fc = keras.layers.Dense(config.TextCNN.num_classes)
 
-
+    #tf.function(input_signature=[tf.TensorSpec([None, 80], tf.float32)])
+    @tf.function
     def call(self, inputs, training=None, mask=None):
 
         print('inputs', inputs)
@@ -120,6 +121,7 @@ class TextRCNN(tf.keras.Model):
             x = tf.nn.softmax(x)
         elif self.config.logits_type == "sigmoid":
             x = tf.nn.sigmoid(x)
+        print("output ", x)
         return x
 
 

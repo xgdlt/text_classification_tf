@@ -37,17 +37,45 @@ def main():
     config = Config(config_file="../conf/train.json")
     batch_size = 32
 
-    model = rnn.RNN(config)
-    #model = textrcnn.TextRCNN(config)
 
+
+    #model = rnn.RNN(config)
+    model = textrcnn.TextRCNN(config)
+    check_path = 'ckpt\model.ckpt'
+    check_dir = os.path.dirname(check_path)
+    latest = tf.train.latest_checkpoint(check_dir)
+    print(latest)
+
+    cp_callback = tf.keras.callbacks.ModelCheckpoint(check_path, verbose=1, save_freq=1000)
+    checkpoint = tf.train.Checkpoint(model=model)
     model.compile(optimizer=keras.optimizers.Adam(0.001),
                   loss=keras.losses.BinaryCrossentropy(from_logits=True),
                   metrics=['accuracy'])
+    if latest:
+        print(latest)
+        #model.load_weights(latest)
+         # 实例化Checkpoint，指定恢复对象为model
+        inputs = keras.layers.Input(
+            shape=(config.input_length,),
+            name='Input',
+        )
+        model._set_inputs(inputs)
+        model.summary()
+        #path = checkpoint.save(check_path)
+        checkpoint.restore(tf.train.latest_checkpoint(check_dir)) #.assert_consumed()
 
+        #model.build(input_shape=(None, config.input_length))
+        model.save('path_to_saved_model', save_format='tf')
+
+
+    #model.summary()
     # train
-    history = model.fit(x_train, y_train, batch_size=config.train.batch_size, epochs=config.train.num_epochs,
-              validation_data=(x_test, y_test), verbose=1)
+    history = model.fit(x_train, y_train, batch_size=config.train.batch_size, epochs=1,
+              validation_data=(x_test, y_test), verbose=1, callbacks=[cp_callback])
 
+    model.save('path_to_saved_model', save_format='tf')
+    path = checkpoint.save(check_path)
+    print("model saved to %s" % path)
     plt.plot(history.history['accuracy'])
     plt.plot(history.history['val_accuracy'])
     plt.legend(['training', 'valiation'], loc='upper left')
