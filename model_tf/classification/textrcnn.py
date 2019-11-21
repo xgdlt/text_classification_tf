@@ -1,15 +1,10 @@
 #!/usr/bin/env python
 # coding:utf-8
 """
-Tencent is pleased to support the open source community by making NeuralClassifier available.
-Copyright (C) 2019 THL A29 Limited, a Tencent company. All rights reserved.
-Licensed under the MIT License (the "License"); you may not use this file except in compliance
-with the License. You may obtain a copy of the License at
-http://opensource.org/licenses/MIT
-Unless required by applicable law or agreed to in writing, software distributed under the License
-is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
-or implied. See the License for thespecific language governing permissions and limitations under
-the License.
+Author:
+    LiTeng 1471356861@qq.com
+
+Implement TextRCNN  CNN + RNN
 """
 
 import tensorflow as tf
@@ -26,7 +21,6 @@ class RNNType(Type):
     def str(cls):
         return ",".join([cls.RNN, cls.LSTM, cls.GRU])
 
-
 class TextRCNN(tf.keras.Model):
     """
     One layer rnn.
@@ -37,40 +31,29 @@ class TextRCNN(tf.keras.Model):
         self.embedding = keras.layers.Embedding(config.TextRNN.input_dim, config.TextRNN.embedding_dimension,
                                                 input_length=config.TextRNN.input_length)
         self.config = config
-        if config.TextRNN.rnn_type == RNNType.LSTM:
-            if config.TextRNN.bidirectional:
-                self.rnn = tf.keras.layers.Bidirectional(
-                    tf.keras.layers.LSTM(config.TextRNN.hidden_dimension,
-                                         use_bias=config.TextRNN.use_bias,
-                                         activation=config.TextRNN.activation))
-            else:
-                self.rnn = tf.keras.layers.LSTM(config.TextRNN.hidden_dimension,
-                                                use_bias=config.TextRNN.use_bias,
-                                                activation=config.TextRNN.activation)
-        elif config.TextRNN.rnn_type == RNNType.GRU:
-            if config.TextRNN.bidirectional:
-                self.rnn = tf.keras.layers.Bidirectional(
-                    tf.keras.layers.GRU(config.TextRNN.hidden_dimension,
-                                        use_bias=config.TextRNN.use_bias,
-                                        activation=config.TextRNN.activation))
-            else:
-                self.rnn = tf.keras.layers.GRU(config.TextRNN.hidden_dimension,
-                                               use_bias=config.TextRNN.use_bias,
-                                               activation=config.TextRNN.activation)
-        elif config.TextRNN.rnn_type == RNNType.RNN:
-            if config.TextRNN.bidirectional:
-                self.rnn = tf.keras.layers.Bidirectional(
-                     tf.keras.layers.SimpleRNN(config.TextRNN.hidden_dimension,
-                                               use_bias=config.TextRNN.use_bias,
-                                               activation=config.TextRNN.activation))
-            else:
-                self.rnn = tf.keras.layers.SimpleRNN(config.TextRNN.hidden_dimension,
-                                                     use_bias=config.TextRNN.use_bias,
-                                                     activation=config.TextRNN.activation)
+        if self.config.TextRNN.rnn_type == RNNType.LSTM:
+            layer_cell = keras.layers.LSTM
+        elif self.config.TextRNN.rnn_type == RNNType.GRU:
+            layer_cell = keras.layers.GRU
         else:
-            raise TypeError(
-                "Unsupported rnn init type: %s. Supported rnn type is: %s" % (
-                    config.TextRNN.rnn_type, RNNType.str()))
+            layer_cell = keras.layers.SimpleRNN
+
+        self.layer_cells = []
+        for i in range(config.TextRNN.num_layers):
+            if config.TextRNN.bidirectional:
+                self.layer_cells.append(keras.layers.Bidirectional(
+                    layer_cell(config.TextRNN.hidden_dimension,
+                               use_bias=config.TextRNN.use_bias,
+                               activation=config.TextRNN.activation,
+                               kernel_regularizer=keras.regularizers.l2(self.config.TextRNN.l2 * 0.1),
+                               recurrent_regularizer=keras.regularizers.l2(self.config.TextRNN.l2))))
+            else:
+                self.layer_cells.append(layer_cell(config.TextRNN.hidden_dimension,
+                                                   use_bias=config.TextRNN.use_bias,
+                                                   activation=config.TextRNN.activation,
+                                                   kernel_regularizer=keras.regularizers.l2(
+                                                       self.config.TextRNN.l2 * 0.1),
+                                                   recurrent_regularizer=keras.regularizers.l2(self.config.TextRNN.l2)))
         if config.TextRNN.bidirectional:
             rnn_out_dimension = config.TextRNN.hidden_dimension * 2
         else:
@@ -100,7 +83,8 @@ class TextRCNN(tf.keras.Model):
         # [b, sentence len] => [b, sentence len, word embedding]
         x = self.embedding(inputs)
         print('embedding', x)
-        x = self.rnn(x)
+        for layer_cell in self.layer_cells:
+            x = layer_cell(x)
         print('rnn', x)
         x = self.reshape(x)
         print("reshape ", x)

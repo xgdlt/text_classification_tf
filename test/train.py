@@ -1,7 +1,7 @@
 import os
 import tensorflow as tf
 import numpy as np
-from model_tf.classification import textcnn,textrnn,textrcnn,textvdcnn,textdcnn,dpcnn,rnn
+from model_tf.classification import textcnn,textrnn,textrcnn,textvdcnn,textdcnn,dpcnn,textbirnn
 from tensorflow import keras
 from config import Config
 import matplotlib.pyplot as plt
@@ -39,13 +39,18 @@ def main():
 
 
     #model = rnn.RNN(config)
-    model = textrcnn.TextRCNN(config)
+    model = textcnn.TextCNN(config)
     check_path = 'ckpt\model.ckpt'
     check_dir = os.path.dirname(check_path)
     latest = tf.train.latest_checkpoint(check_dir)
     print(latest)
 
     cp_callback = tf.keras.callbacks.ModelCheckpoint(check_path, verbose=1, save_freq=1000)
+
+    TensorBoardcallback = keras.callbacks.TensorBoard(
+        log_dir=check_path, write_images=True
+    )
+
 
     model.compile(optimizer=keras.optimizers.Adam(0.001),
                   loss=keras.losses.BinaryCrossentropy(from_logits=True),
@@ -72,7 +77,7 @@ def main():
     #model.summary()
     # train
     history = model.fit(x_train, y_train, batch_size=config.train.batch_size, epochs=1,
-              validation_data=(x_test, y_test), verbose=1, callbacks=[cp_callback])
+              validation_data=(x_test, y_test), verbose=1, callbacks=[cp_callback, TensorBoardcallback])
 
     model.save('path_to_saved_model', save_format='tf')
 

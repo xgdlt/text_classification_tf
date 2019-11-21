@@ -13,94 +13,97 @@ the License.
 """
 
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-from model_tf.model_util import init_tensor
+import tensorflow as tf
 
 
-class ScaledDotProductAttention(nn.Module):
-    ''' Scaled Dot-Product Attention '''
+def scaled_dot_product_attention(q, k, v, mask):
+    """计算注意力权重。
+    q, k, v 必须具有匹配的前置维度。
+    k, v 必须有匹配的倒数第二个维度，例如：seq_len_k = seq_len_v。
+    虽然 mask 根据其类型（填充或前瞻）有不同的形状，
+    但是 mask 必须能进行广播转换以便求和。
 
-    def __init__(self, temperature, attn_dropout=0.1):
-        super(ScaledDotProductAttention, self).__init__()
-        self.temperature = temperature
-        self.dropout = nn.Dropout(attn_dropout)
-        self.softmax = nn.Softmax(dim=2)
+    参数:
+      q: 请求的形状 == (..., seq_len_q, depth)
+      k: 主键的形状 == (..., seq_len_k, depth)
+      v: 数值的形状 == (..., seq_len_v, depth_v)
+      mask: Float 张量，其形状能转换成
+            (..., seq_len_q, seq_len_k)。默认为None。
 
-    def forward(self, q, k, v, mask=None):
+    返回值:
+      输出，注意力权重
+    """
 
-        attn = torch.bmm(q, k.transpose(1, 2))
-        attn = attn / self.temperature
+    matmul_qk = tf.matmul(q, k, transpose_b=True)  # (..., seq_len_q, seq_len_k)
 
-        if mask is not None:
-            attn = attn.masked_fill(mask, -np.inf)
+    # 缩放 matmul_qk
+    dk = tf.cast(tf.shape(k)[-1], tf.float32)
+    scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
 
-        attn = self.softmax(attn)
-        attn = self.dropout(attn)
-        output = torch.bmm(attn, v)
+    # 将 mask 加入到缩放的张量上。
+    if mask is not None:
+        scaled_attention_logits += (mask * -1e9)
 
-        return output, attn
+        # softmax 在最后一个轴（seq_len_k）上归一化，因此分数
+    # 相加等于1。
+    attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (..., seq_len_q, seq_len_k)
+
+    output = tf.matmul(attention_weights, v)  # (..., seq_len_q, depth_v)
+
+    return output, attention_weights
 
 
-class MultiHeadAttention(nn.Module):
-    ''' Multi-Head Attention module '''
-
-    def __init__(self, n_head, d_model, d_k, d_v, use_star=False, dropout=0.1):
+class MultiHeadAttention(tf.keras.layers.Layer):
+    def __init__(self, d_model, num_heads):
         super(MultiHeadAttention, self).__init__()
+        self.num_heads = num_heads
+        self.d_model = d_model
 
-        self.n_head = n_head
-        self.d_k = d_k
-        self.d_v = d_v
-        self.use_star = use_star
+        assert d_model % self.num_heads == 0
 
-        self.w_qs = nn.Linear(d_model, n_head * d_k)
-        self.w_ks = nn.Linear(d_model, n_head * d_k)
-        self.w_vs = nn.Linear(d_model, n_head * d_v)
-        nn.init.normal_(self.w_qs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_k)))
-        nn.init.normal_(self.w_ks.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_k)))
-        nn.init.normal_(self.w_vs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_v)))
+        self.depth = d_model // self.num_heads
 
-        self.attention = ScaledDotProductAttention(temperature=np.power(d_k, 0.5))
-        self.layer_norm = nn.LayerNorm(d_model)
+        self.wq = tf.keras.layers.Dense(d_model)
+        self.wk = tf.keras.layers.Dense(d_model)
+        self.wv = tf.keras.layers.Dense(d_model)
 
-        self.fc = nn.Linear(n_head * d_v, d_model)
-        nn.init.xavier_normal_(self.fc.weight)
+        self.dense = tf.keras.layers.Dense(d_model)
 
-        self.dropout = nn.Dropout(dropout)
+    def split_heads(self, x, batch_size):
+        """分拆最后一个维度到 (num_heads, depth).
+        转置结果使得形状为 (batch_size, num_heads, seq_len, depth)
+        """
+        x = tf.reshape(x, (batch_size, -1, self.num_heads, self.depth))
+        return tf.transpose(x, perm=[0, 2, 1, 3])
 
+    def call(self, v, k, q, mask):
+        batch_size = tf.shape(q)[0]
 
-    def forward(self, q, k, v, mask=None):
+        q = self.wq(q)  # (batch_size, seq_len, d_model)
+        k = self.wk(k)  # (batch_size, seq_len, d_model)
+        v = self.wv(v)  # (batch_size, seq_len, d_model)
 
-        d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
+        q = self.split_heads(q, batch_size)  # (batch_size, num_heads, seq_len_q, depth)
+        k = self.split_heads(k, batch_size)  # (batch_size, num_heads, seq_len_k, depth)
+        v = self.split_heads(v, batch_size)  # (batch_size, num_heads, seq_len_v, depth)
 
-        sz_b, len_q, _ = q.size()
-        sz_b, len_k, _ = k.size()
-        sz_b, len_v, _ = v.size()
+        # scaled_attention.shape == (batch_size, num_heads, seq_len_q, depth)
+        # attention_weights.shape == (batch_size, num_heads, seq_len_q, seq_len_k)
+        scaled_attention, attention_weights = scaled_dot_product_attention(
+            q, k, v, mask)
 
-        residual = q
+        scaled_attention = tf.transpose(scaled_attention,
+                                        perm=[0, 2, 1, 3])  # (batch_size, seq_len_q, num_heads, depth)
 
-        q = self.w_qs(q).view(sz_b, len_q, n_head, d_k)
-        k = self.w_ks(k).view(sz_b, len_k, n_head, d_k)
-        v = self.w_vs(v).view(sz_b, len_v, n_head, d_v)
+        concat_attention = tf.reshape(scaled_attention,
+                                      (batch_size, -1, self.d_model))  # (batch_size, seq_len_q, d_model)
 
-        q = q.permute(2, 0, 1, 3).contiguous().view(-1, len_q, d_k) # (n*b) x lq x dk
-        k = k.permute(2, 0, 1, 3).contiguous().view(-1, len_k, d_k) # (n*b) x lk x dk
-        v = v.permute(2, 0, 1, 3).contiguous().view(-1, len_v, d_v) # (n*b) x lv x dv
+        output = self.dense(concat_attention)  # (batch_size, seq_len_q, d_model)
 
-        if mask is not None:
-            mask = mask.repeat(n_head, 1, 1) # (n*b) x .. x ..
-        output, attn = self.attention(q, k, v, mask=mask)
+        return output, attention_weights
 
-        output = output.view(n_head, sz_b, len_q, d_v)
-        output = output.permute(1, 2, 0, 3).contiguous().view(sz_b, len_q, -1) # b x lq x (n*dv)
-
-        if self.use_star:
-            output = self.dropout(F.relu(self.fc(output)))
-            output = self.layer_norm(output)
-        else:
-            output = self.dropout(self.fc(output))
-            output = self.layer_norm(output + residual)
-
-        return output, attn
+def point_wise_feed_forward_network(d_model, dff):
+  return tf.keras.Sequential([
+      tf.keras.layers.Dense(dff, activation='relu'),  # (batch_size, seq_len, dff)
+      tf.keras.layers.Dense(d_model)  # (batch_size, seq_len, d_model)
+  ])

@@ -1,7 +1,7 @@
 import os
 import tensorflow as tf
 import numpy as np
-from model_tf.classification import textcnn,textrnn,textrcnn,textvdcnn,textdcnn,dpcnn,rnn
+from model_tf.classification import textcnn,textrnn,textrcnn,textvdcnn,textdcnn,dpcnn,textbirnn
 from tensorflow import keras
 from config import Config
 import matplotlib.pyplot as plt

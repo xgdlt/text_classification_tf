@@ -19,9 +19,7 @@ Star-Transformer Encode:
     https://arxiv.org/pdf/1902.09113v2.pdf
 """
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import tensorflow as tf
 
 from model_tf.attention import MultiHeadAttention
 
