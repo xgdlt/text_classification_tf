@@ -15,8 +15,6 @@ the License.
 import json
 import os
 
-import torch
-
 from util import Logger
 from util import ModeType
 from util import Type

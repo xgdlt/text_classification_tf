@@ -1,7 +1,7 @@
 import os
 import tensorflow as tf
 import numpy as np
-from model_tf.classification import textcnn,textrnn,textrcnn,textvdcnn,textdcnn,dpcnn,textbirnn
+from model.classification import textcnn,textrnn,textrcnn,textvdcnn,textdcnn,dpcnn,textbirnn
 from tensorflow import keras
 from config import Config
 import matplotlib.pyplot as plt
@@ -37,8 +37,8 @@ def main():
     config = Config(config_file="../conf/train.json")
     batch_size = 32
 
-
-
+    print(globals())
+    exit()
     #model = rnn.RNN(config)
     model = textrcnn.TextRCNN(config)
     check_path = 'ckpt\model.ckpt'
