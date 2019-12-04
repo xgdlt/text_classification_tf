@@ -342,38 +342,6 @@ def fastF1(predicts,results, num_class):
         p*100, r*100, micro_f1 * 100, macro_f1*100))
     return p, r, macro_f1, micro_f1, total_list
 
-def assign_pretrained_word_embedding(sess,vocabulary_index2word,vocab_size,model,word2vec_model_path):
-    import word2vec # we put import here so that many people who do not use word2vec do not need to install this package. you can move import to the beginning of this file.
-    print("using pre-trained word emebedding.started.word2vec_model_path:",word2vec_model_path)
-    word2vec_model = word2vec.load(word2vec_model_path, kind='bin')
-    word2vec_dict = {}
-    for word, vector in zip(word2vec_model.vocab, word2vec_model.vectors):
-        word2vec_dict[word] = vector
-    word_embedding_2dlist = [[]] * vocab_size  # create an empty word_embedding list.
-    word_embedding_2dlist[0] = np.zeros(FLAGS.embed_size)  # assign empty for first word:'PAD'
-    bound = np.sqrt(6.0) / np.sqrt(vocab_size)  # bound for random variables.
-    count_exist = 0;
-    count_not_exist = 0
-    for i in range(2, vocab_size):  # loop each word. notice that the first two words are pad and unknown token
-        word = vocabulary_index2word[i]  # get a word
-        embedding = None
-        try:
-            embedding = word2vec_dict[word]  # try to get vector:it is an array.
-        except Exception:
-            embedding = None
-        if embedding is not None:  # the 'word' exist a embedding
-            word_embedding_2dlist[i] = embedding;
-            count_exist = count_exist + 1  # assign array to this word.
-        else:  # no embedding for this word
-            word_embedding_2dlist[i] = np.random.uniform(-bound, bound, FLAGS.embed_size);
-            count_not_exist = count_not_exist + 1  # init a random value for the word.
-    word_embedding_final = np.array(word_embedding_2dlist)  # covert to 2d array.
-    word_embedding = tf.constant(word_embedding_final, dtype=tf.float32)  # convert to tensor
-    t_assign_embedding = tf.assign(model.Embedding,word_embedding)  # assign this value to our embedding variables of our model.
-    sess.run(t_assign_embedding);
-    print("word. exists embedding:", count_exist, " ;word not exist embedding:", count_not_exist)
-    print("using pre-trained word emebedding.ended...")
-
 def load_example_and_label(filename, flag=True):
     if flag:
         file = os.path.join(FLAGS.model_data_dir, filename)
@@ -403,25 +371,6 @@ def print_example(example,X,label,Y):
         print("example ids: ", X[index])
         print("label: ", label[index])
         print("label ids: ", Y[index])
-
-def create_word_index(word_file,examples):
-    words_cnt = {}
-    for example in examples:
-        words = example.split(" ")
-        for word in words:
-            if word in ["", " "]:
-                continue
-            if word not in words_cnt:
-                words_cnt[word] = 0
-            words_cnt[word] += 1
-    words = []
-    words.append("[PAD]")
-    words.append("[UNK]")
-    for word, cnt in words_cnt.items():
-        if cnt > 2:
-            words.append(word)
-    dataHelper.write_file(word_file, words)
-
 
 def get_seq_lentgh(seq_lenth_file, train_example,dev_example,predict_example):
     examples = []
