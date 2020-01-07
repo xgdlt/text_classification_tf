@@ -1,12 +1,3 @@
-![NeuralClassifier Logo](readme/logo.png)
-
-
-# NeuralClassifier: An Open-source Neural Hierarchical Multi-label Text Classification Toolkit
-
-## Introduction
-
-NeuralClassifier is designed for quick implementation of neural models for hierarchical multi-label classification task, which is more challenging and common in real-world scenarios. A salient feature is that NeuralClassifier currently provides a variety of text encoders, such as FastText, TextCNN, TextRNN, RCNN, VDCNN, DPCNN, DRNN, AttentiveConvNet and Transformer encoder, etc. It also supports other text classification scenarios, including binary-class and multi-class classification. It is built on [PyTorch](https://pytorch.org/). Experiments show that models built in our toolkit achieve comparable performance with reported results in the literature.
-
 ## Support tasks
 
 * Binary-class text classifcation
@@ -31,7 +22,7 @@ NeuralClassifier is designed for quick implementation of neural models for hiera
 ## Requirement
 
 * Python 3
-* PyTorch 0.4+
+* Tensorflow 2.0+
 * Numpy 1.14.3+
 
 ## System Architecture
