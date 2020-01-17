@@ -10,10 +10,8 @@ which can be seen at "http://www.aclweb.org/anthology/E17-1104"
 
 import tensorflow as tf
 from tensorflow import keras
+
 from model.layers.layers import k_max_pooling
-from util import Type
-
-
 
 
 class ConvBlock(keras.layers.Layer):

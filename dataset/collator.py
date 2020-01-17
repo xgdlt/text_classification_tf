@@ -17,7 +17,7 @@ the License.
 import torch
 
 from dataset.classification_dataset import ClassificationDataset as cDataset
-from util import Type
+from utils.util import Type
 
 
 class Collator(object):

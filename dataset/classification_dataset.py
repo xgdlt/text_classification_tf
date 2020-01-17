@@ -15,7 +15,7 @@ the License.
 
 from dataset.dataset import DatasetBase
 from dataset.dataset import InsertVocabMode
-from util import ModeType
+from utils.util import ModeType
 
 
 class ClassificationDataset(DatasetBase):

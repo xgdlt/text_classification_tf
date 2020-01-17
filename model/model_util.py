@@ -13,9 +13,11 @@ the License.
 """
 
 import codecs as cs
-import tensorflow as tf
+
 import numpy as np
-from util import Type
+import tensorflow as tf
+
+from utils.util import Type
 
 
 class ActivationType(Type):

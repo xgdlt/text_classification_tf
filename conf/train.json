@@ -94,6 +94,11 @@
     "num_classes": 1,
     "top_k_max_pooling": 1
   },
+   "MLP": {
+     "layer_num":1,
+     "num_classes":1,
+    "hiden_dimensions":[128]
+  },
   "TextDCNN": {
     "kernel_sizes": [[10, 7, 5], [6, 4, 3]],
     "filters": 256,

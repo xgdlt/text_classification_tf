@@ -14,7 +14,8 @@ the License.
 
 import tensorflow as tf
 from tensorflow import keras
-from util import Type
+
+from utils.util import Type
 
 
 class RNNType(Type):

@@ -15,9 +15,9 @@ the License.
 import json
 import os
 
-from util import Logger
-from util import ModeType
-from util import Type
+from utils.util import Logger
+from utils.util import ModeType
+from utils.util import Type
 
 
 class InsertVocabMode(Type):

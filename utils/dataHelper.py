@@ -7,7 +7,7 @@ import random
 import numpy as np
 import tensorflow as tf
 import collections
-from data_util import tokenization
+from utils import tokenization
 
 
 

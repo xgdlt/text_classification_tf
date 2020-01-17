@@ -38,7 +38,6 @@ def main():
     batch_size = 32
 
     print(globals())
-    exit()
     #model = rnn.RNN(config)
     model = textrcnn.TextRCNN(config)
     check_path = 'ckpt\model.ckpt'
@@ -49,7 +48,7 @@ def main():
     cp_callback = tf.keras.callbacks.ModelCheckpoint(check_path, verbose=1, save_freq=1000)
     checkpoint = tf.train.Checkpoint(model=model)
     model.compile(optimizer=keras.optimizers.Adam(0.001),
-                  loss=keras.losses.BinaryCrossentropy(from_logits=True),
+                  loss=keras.losses.MeanSquaredError(),
                   metrics=['accuracy'])
     if latest:
         print(latest)
@@ -76,6 +75,7 @@ def main():
     model.save('path_to_saved_model', save_format='tf')
     path = checkpoint.save(check_path)
     print("model saved to %s" % path)
+    '''
     plt.plot(history.history['accuracy'])
     plt.plot(history.history['val_accuracy'])
     plt.legend(['training', 'valiation'], loc='upper left')
@@ -85,11 +85,13 @@ def main():
     plt.plot(history.history['val_loss'])
     plt.legend(['training', 'valiation'], loc='upper left')
     plt.show()
-
+    '''
     # evaluate on test set
     scores = model.evaluate(x_test, y_test, batch_size, verbose=1)
     print("Final test loss and accuracy :", scores)
-
+    scores = model.predict(x_test, y_test, batch_size, verbose=1)
+    for score in scores:
+        print(score)
 
 if __name__ == '__main__':
     main()
