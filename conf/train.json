@@ -5,6 +5,7 @@
     "hierar_taxonomy": "data/rcv1.taxonomy",
     "hierar_penalty": 0.000001
   },
+  "rest":false,
   "input_length": 80,
   "logits_type":"",
   "device": "cuda",
@@ -64,6 +65,16 @@
     "hidden_layer_dropout": 0.5
   },
   "embedding": {
+    "vocab_size":21128,
+    "hidden_size": 768,
+    "embedding_size": null,
+    "hidden_dropout": 0.1,
+    "use_token_type": true,
+    "use_position_embeddings": true,
+    "token_type_vocab_size":2,
+    "support_masking":true,
+    "position_size":512,
+    "pretrain_embeddings_file":null,
     "type": "embedding",
     "dimension": 64,
     "region_embedding_type": "context_word",
@@ -95,9 +106,30 @@
     "top_k_max_pooling": 1
   },
    "MLP": {
-     "layer_num":1,
+     "layer_num":3,
+     "num_classes":2,
+     "classify": false,
+    "hiden_dimensions":[256,128]
+  },
+   "CNN": {
      "num_classes":1,
-    "hiden_dimensions":[128]
+     "input_length": 6,
+     "input_dim": 841,
+     "classify": false,
+     "kernel_size": 1
+  },
+  "RNN": {
+    "hidden_dimension": 64,
+    "rnn_type": "LSTM",
+    "num_layers": 1,
+    "use_bias": true,
+    "activation": "relu",
+    "doc_embedding_type": "Attention",
+    "attention_dimension": 16,
+    "num_classes": 1,
+    "l2": 1e-3,
+    "classify": false,
+    "bidirectional": false
   },
   "TextDCNN": {
     "kernel_sizes": [[10, 7, 5], [6, 4, 3]],

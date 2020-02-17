@@ -17,24 +17,34 @@ class model(keras.Model):
         self.config = config
         self.fcs = []
         for i in range(0, config.MLP.layer_num - 1):
-            self.fcs.append( keras.layers.Dense(config.MLP.hiden_dimensions[i]), activation = 'relu')
-
+            self.fcs.append( keras.layers.Dense(config.MLP.hiden_dimensions[i], activation = 'relu',kernel_regularizer=keras.regularizers.L1L2(0.01,0.01)))
+        self.flatten = keras.layers.Flatten()
         #self.dropout = keras.layers.Dropout(config.MLP.dropout)
-        self.fc = keras.layers.Dense(config.MLP.num_classes)
-
+        self.fc = keras.layers.Dense(config.MLP.num_classes,kernel_regularizer=keras.regularizers.L1L2(0.01,0.01))
+        self.regression = keras.layers.Dense(1, name = "regression",kernel_regularizer=keras.regularizers.L1L2(0.01,0.01))
+        self.classify = keras.layers.Dense(config.MLP.num_classes, name = "classify",kernel_regularizer=keras.regularizers.L1L2(0.01,0.01))
 
     def call(self, inputs,training=None, mask=None):
         print("inputs",inputs )
-        out = inputs
+
+        if self.config.rest:
+            out, base = inputs
+        else:
+            out = inputs
+
         for i in range(0, len(self.fcs)):
             out =  self.fcs[i](out)
-            #out = self.dropout(out)
-        out = self.fc(out)
-        print("fc", out)
+            print("fc %d"%i, out)
 
-        if self.config.logits_type == "softmax":
-            out = tf.nn.softmax(out)
-        elif self.config.logits_type == "sigmoid":
-            out = tf.nn.sigmoid(out)
+        out = self.flatten(out)
+        print("out", out)
 
-        return  out
+        if self.config.rest:
+            out = keras.layers.concatenate([out, base])
+
+        regression = self.regression(out)
+        if self.config.MLP.classify:
+            classify = self.classify(out)
+            classify = tf.nn.softmax(classify)
+            return [regression, classify]
+        return regression

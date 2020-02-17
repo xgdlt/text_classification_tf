@@ -10,26 +10,29 @@ import tensorflow as tf
 from tensorflow import keras
 
 
-class CNN(tf.keras.Model):
+class model(tf.keras.Model):
     def __init__(self, config):
-        super(CNN, self).__init__()
+        super(model, self).__init__()
         self.config = config
         self.reshape = keras.layers.Reshape((config.CNN.input_length, config.CNN.input_dim, 1))
 
         self.conv = keras.layers.Conv2D(filters=64, kernel_size=(config.CNN.kernel_size, config.CNN.input_dim),
                                    strides=1, padding='valid', activation='relu')
 
-        self.pool = keras.layers.MaxPool2D(pool_size=(config.CNN.input_length - 1 + 1, 1), padding='valid')
-
+        self.pool = tf.keras.layers.AveragePooling2D(pool_size=(config.CNN.input_length - 1 + 1, 1), padding='valid')
 
         #self.top_k = self.config.CNN.top_k_max_pooling
         self.flatten = keras.layers.Flatten()
-        self.fc = keras.layers.Dense(config.CNN.num_classes)
+        self.regression = keras.layers.Dense(1, name = "regression")
+        self.classify = keras.layers.Dense(config.CNN.num_classes, name = "classify")
 
     def call(self, inputs,training=None, mask=None):
         print("inputs", inputs)
-        x = self.embedding(inputs)
-        print("embedding", x)
+        if self.config.rest:
+            x, base = inputs
+        else:
+            x = inputs
+
         x = self.reshape(x)
         print("reshape ", x)
         x = self.conv(x)
@@ -38,9 +41,16 @@ class CNN(tf.keras.Model):
         print("concat", x)
         x = self.flatten(x)
         print("flatten ", x)
-        x = self.fc(x)
-        if self.config.logits_type == "softmax":
-            x = tf.nn.softmax(x)
-        elif self.config.logits_type == "sigmoid":
-            x = tf.nn.sigmoid(x)
-        return x
+
+
+        if self.config.rest:
+            x = keras.layers.concatenate([x, base])
+            print("concatenate ", x)
+
+        regression = self.regression(x)
+
+        if self.config.CNN.classify:
+            classify = self.classify(x)
+            classify = tf.nn.softmax(classify)
+            return [regression, classify]
+        return regression

@@ -5,11 +5,10 @@ Author:
     LiTeng 1471356861@qq.com
 """
 
-import torch
-import torch.nn as nn
 
 from utils.util import Type
-
+from tensorflow import keras
+import tensorflow as tf
 
 class LossType(Type):
     """Standard names for loss type
@@ -17,14 +16,14 @@ class LossType(Type):
     SOFTMAX_CROSS_ENTROPY = "SoftmaxCrossEntropy"
     SOFTMAX_FOCAL_CROSS_ENTROPY = "SoftmaxFocalCrossEntropy"
     SIGMOID_FOCAL_CROSS_ENTROPY = "SigmoidFocalCrossEntropy"
-    BCE_WITH_LOGITS = "BCEWithLogitsLoss"
+    MEAN_SQUARED_ERROR = "MeanSquaredError"
 
     @classmethod
     def str(cls):
         return ",".join([cls.SOFTMAX_CROSS_ENTROPY,
                          cls.SOFTMAX_FOCAL_CROSS_ENTROPY,
                          cls.SIGMOID_FOCAL_CROSS_ENTROPY,
-                         cls.BCE_WITH_LOGITS])
+                         cls.MEAN_SQUARED_ERROR])
 
 
 class ActivationType(Type):
@@ -39,7 +38,7 @@ class ActivationType(Type):
                          cls.SIGMOID])
 
 
-class FocalLoss(nn.Module):
+class FocalLoss(keras.layers.Layer):
     """Softmax focal loss
     references: Focal Loss for Dense Object Detection
                 https://github.com/Hsuxu/FocalLoss-PyTorch
@@ -54,7 +53,7 @@ class FocalLoss(nn.Module):
         self.alpha = alpha
         self.epsilon = epsilon
 
-    def forward(self, logits, target):
+    def call(self, logits, target):
         """
         Args:
             logits: model's output, shape of [batch_size, num_cls]
@@ -63,25 +62,21 @@ class FocalLoss(nn.Module):
             shape of [batch_size]
         """
         if self.activation_type == ActivationType.SOFTMAX:
-            idx = target.view(-1, 1).long()
-            one_hot_key = torch.zeros(idx.size(0), self.num_cls,
-                                      dtype=torch.float,
-                                      device=idx.device)
-            one_hot_key = one_hot_key.scatter_(1, idx, 1)
-            logits = torch.softmax(logits, dim=-1)
+            one_hot_key = tf.one_hot(target,self.num_cls)
+            logits = tf.softmax(logits)
             loss = -self.alpha * one_hot_key * \
-                   torch.pow((1 - logits), self.gamma) * \
+                   tf.pow((1 - logits), self.gamma) * \
                    (logits + self.epsilon).log()
             loss = loss.sum(1)
         elif self.activation_type == ActivationType.SIGMOID:
             multi_hot_key = target
-            logits = torch.sigmoid(logits)
+            logits = tf.sigmoid(logits)
             zero_hot_key = 1 - multi_hot_key
             loss = -self.alpha * multi_hot_key * \
-                   torch.pow((1 - logits), self.gamma) * \
+                   tf.pow((1 - logits), self.gamma) * \
                    (logits + self.epsilon).log()
             loss += -(1 - self.alpha) * zero_hot_key * \
-                    torch.pow(logits, self.gamma) * \
+                    tf.pow(logits, self.gamma) * \
                     (1 - logits + self.epsilon).log()
         else:
             raise TypeError("Unknown activation type: " + self.activation_type
@@ -90,26 +85,26 @@ class FocalLoss(nn.Module):
         return loss.mean()
 
 
-class ClassificationLoss(torch.nn.Module):
-    def __init__(self, label_size, class_weight=None,
+class ClassificationLoss(tf.keras.layers.Layer):
+    def __init__(self, label_size,
                  loss_type=LossType.SOFTMAX_CROSS_ENTROPY):
         super(ClassificationLoss, self).__init__()
         self.label_size = label_size
         self.loss_type = loss_type
         if loss_type == LossType.SOFTMAX_CROSS_ENTROPY:
-            self.criterion = torch.nn.CrossEntropyLoss(class_weight)
+            self.criterion = tf.keras.losses.CategoricalCrossentropy()
         elif loss_type == LossType.SOFTMAX_FOCAL_CROSS_ENTROPY:
             self.criterion = FocalLoss(label_size, ActivationType.SOFTMAX)
         elif loss_type == LossType.SIGMOID_FOCAL_CROSS_ENTROPY:
             self.criterion = FocalLoss(label_size, ActivationType.SIGMOID)
-        elif loss_type == LossType.BCE_WITH_LOGITS:
-            self.criterion = torch.nn.BCEWithLogitsLoss()
+        elif loss_type == LossType.MEAN_SQUARED_ERROR:
+            self.criterion = keras.losses.MeanSquaredError()
         else:
             raise TypeError(
                 "Unsupported loss type: %s. Supported loss type is: %s" % (
                     loss_type, LossType.str()))
 
-    def forward(self, logits, target,
+    def call(self, logits, target,
                 use_hierar=False,
                 is_multi=False,
                 *argvs):
