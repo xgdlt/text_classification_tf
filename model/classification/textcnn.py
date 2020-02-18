@@ -8,15 +8,17 @@
 
 import tensorflow as tf
 from tensorflow import keras
+from model.embeddings import EmbeddingsLayer
 
 
 class TextCNN(tf.keras.Model):
     def __init__(self, config):
         super(TextCNN, self).__init__()
         self.config = config
-        self.embedding = keras.layers.Embedding(config.TextCNN.input_dim, config.TextCNN.embedding_dimension,
-                                                input_length=config.TextCNN.input_length)
-        self.reshape = keras.layers.Reshape((config.TextCNN.input_length, config.TextCNN.embedding_dimension, 1))
+        self.embedding = EmbeddingsLayer(config.embedding)
+            #keras.layers.Embedding(config.TextCNN.input_dim, config.TextCNN.embedding_dimension,
+            #                                    input_length=config.TextCNN.input_length)
+        self.reshape = keras.layers.Reshape((config.TextCNN.input_length, config.embedding.hidden_size, 1))
 
         self.kernel_sizes = config.TextCNN.kernel_sizes
         self.convs = []
@@ -56,4 +58,5 @@ class TextCNN(tf.keras.Model):
             x = tf.nn.softmax(x)
         elif self.config.logits_type == "sigmoid":
             x = tf.nn.sigmoid(x)
+        print("output ", x)
         return x

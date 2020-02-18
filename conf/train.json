@@ -77,12 +77,8 @@
     "pretrain_embeddings_file":null,
     "type": "embedding",
     "dimension": 64,
-    "region_embedding_type": "context_word",
-    "region_size": 5,
+    "pretrain_initializer": "D:\\code\\text_classification_tf\\conf\\bert_embed.npy",
     "initializer": "uniform",
-    "fan_mode": "FAN_IN",
-    "uniform_bound": 0.25,
-    "random_stddev": 0.01,
     "dropout": 0.0
   },
   "optimizer": {

@@ -8,7 +8,7 @@ from __future__ import absolute_import, division, print_function
 import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow import keras
-
+import numpy as np
 
 class TrigPosEmbedding(keras.layers.Layer):
     """Position embedding use sine and cosine functions.
@@ -356,6 +356,8 @@ class EmbeddingsLayer(tf.keras.layers.Layer):
 
     # noinspection PyUnusedLocal
     def __init__(self, config):
+        super(EmbeddingsLayer, self).__init__()
+        self.config = config
         self.vocab_size =config.vocab_size
         self.use_token_type = config.use_token_type
         self.use_position_embeddings = config.use_position_embeddings
@@ -365,6 +367,7 @@ class EmbeddingsLayer(tf.keras.layers.Layer):
         self.position_size = config.position_size
         self.embedding_size = config.embedding_size  # None for BERT, not None for ALBERT
         self.support_masking = config.support_masking
+        self.pretrain_initializer = config.pretrain_initializer
 
         self.word_embeddings_layer       = None
         self.word_embeddings_2_layer     = None   # for ALBERT
@@ -386,10 +389,15 @@ class EmbeddingsLayer(tf.keras.layers.Layer):
             input_ids_shape = input_shape
             self.input_spec = keras.layers.InputSpec(shape=input_ids_shape)
 
+        if self.pretrain_initializer is not None:
+            initializer =  tf.constant_initializer(np.load(self.pretrain_initializer))
+        else:
+            initializer = self.config.initializer
+
         self.word_embeddings_layer = keras.layers.Embedding(
             input_dim=self.vocab_size,
             output_dim=self.hidden_size if self.embedding_size is None else self.embedding_size,
-            mask_zero=True,  # =self.mask_zero,
+            embeddings_initializer=initializer,
             name="word_embeddings"
         )
         if self.embedding_size is not None:
@@ -411,7 +419,7 @@ class EmbeddingsLayer(tf.keras.layers.Layer):
         self.layer_norm_layer = tf.keras.layers.LayerNormalization(name="LayerNorm")
         self.dropout_layer    = keras.layers.Dropout(rate=self.hidden_dropout)
 
-        super(BertEmbeddingsLayer, self).build(input_shape)
+        super(EmbeddingsLayer, self).build(input_shape)
 
     def call(self, inputs, mask=None, training=None):
         if isinstance(inputs, list):
@@ -446,3 +454,8 @@ class EmbeddingsLayer(tf.keras.layers.Layer):
             input_ids      = inputs
 
         return tf.not_equal(input_ids, 0)
+
+
+def read_npy_file(npyfile):
+    data = np.load(npyfile)
+    return data.astype(np.float32)

@@ -23,6 +23,8 @@ def main():
     # truncate and pad input sequences
     max_review_length = 80
     (X_train, y_train), (X_test, y_test) = keras.datasets.imdb.load_data(num_words=top_words)
+    print("X_train", X_train[0:10])
+    print("y_train", y_train[0:10])
     print("X_train", type(X_train))
     print("y_train", type(y_train))
     # X_train = tf.convert_to_tensor(X_train)
@@ -35,11 +37,11 @@ def main():
     print("x_train", type(x_train))
     print("x_test", type(x_test))
     config = Config(config_file="../conf/train.json")
-    batch_size = 32
+    batch_size = 1
 
     print(globals())
     #model = rnn.RNN(config)
-    model = textrcnn.TextRCNN(config)
+    model = textcnn.TextCNN(config)
     check_path = 'ckpt\model.ckpt'
     check_dir = os.path.dirname(check_path)
     latest = tf.train.latest_checkpoint(check_dir)
