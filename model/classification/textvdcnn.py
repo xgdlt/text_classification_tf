@@ -11,6 +11,7 @@ which can be seen at "http://www.aclweb.org/anthology/E17-1104"
 import tensorflow as tf
 from tensorflow import keras
 
+from model.layers.embeddings import EmbeddingsLayer
 from model.layers.layers import k_max_pooling
 
 
@@ -123,7 +124,7 @@ class IdentityBlock(keras.layers.Layer):
             out = self.relu(out)
         return out
 
-class TextVDCNN(keras.Model):
+class Model(keras.Model):
     def __init__(self,  config):
         """all convolutional blocks
         4 kinds of conv blocks, which #feature_map are 64,128,256,512
@@ -135,8 +136,11 @@ class TextVDCNN(keras.Model):
         conv block 64:     2  4  10 16
         First conv. layer: 1  1  1  1
         """
-        super(TextVDCNN, self).__init__()
-
+        super(Model, self).__init__()
+        if self.config.embedding.use_embedding:
+            self.embedding = EmbeddingsLayer(config.embedding)
+        else:
+            self.reshape = keras.layers.Reshape((config.TextVDCNN.input_length, config.TextVDCNN.embedding_dimension))
         self.vdcnn_num_convs = {}
         self.vdcnn_num_convs[9] = [2, 2, 2, 2]
         self.vdcnn_num_convs[17] = [4, 4, 4, 4]
@@ -145,14 +149,10 @@ class TextVDCNN(keras.Model):
         self.num_kernels = [64, 128, 256, 512]
         self.config = config
         self.vdcnn_depth = config.TextVDCNN.vdcnn_depth
-        self.embedding = keras.layers.Embedding(config.TextVDCNN.input_dim, config.TextVDCNN.embedding_dimension,
-                                                input_length=config.TextVDCNN.input_length)
 
         self.first_conv = keras.layers.Conv1D(filters=64, kernel_size=3,
                             strides=1, padding='SAME', activation='relu')
 
-
-        last_num_kernel = 64
         self.identity_blocks = []
         self.con_blocks = []
         for i, num_kernel in enumerate(self.num_kernels):
@@ -175,8 +175,14 @@ class TextVDCNN(keras.Model):
 
     def call(self, inputs, training=None, mask=None,logits_type=None):
 
-        x = self.embedding(inputs)
-        print("embedding", x)
+        print("inputs", inputs)
+        x = inputs
+        if self.config.embedding.use_embedding:
+            # [b, sentence len] => [b, sentence len, word embedding]
+            x = self.embedding(x)
+            print("embedding", x)
+        else:
+            x = self.reshape(x)
         # first conv layer (kernel_size=3, #feature_map=64)
         out = self.first_conv(x)
         print("first_conv", out)

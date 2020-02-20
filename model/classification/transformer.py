@@ -10,8 +10,8 @@ Star-Transformer Encode:
 
 import tensorflow as tf
 
-from model.attention import MultiHeadAttention,point_wise_feed_forward_network
-from model.model_util import positional_encoding
+from model.layers.attention import MultiHeadAttention,point_wise_feed_forward_network
+from utils.model_util import positional_encoding
 
 
 class DecoderLayer(tf.keras.layers.Layer):
@@ -143,10 +143,10 @@ class Decoder(tf.keras.layers.Layer):
         # x.shape == (batch_size, target_seq_len, d_model)
         return x, attention_weights
 
-class Transformer(tf.keras.Model):
+class Model(tf.keras.Model):
     def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size,
                  target_vocab_size, pe_input, pe_target, rate=0.1):
-        super(Transformer, self).__init__()
+        super(Model, self).__init__()
 
         self.encoder = Encoder(num_layers, d_model, num_heads, dff,
                                input_vocab_size, pe_input, rate)
@@ -169,7 +169,7 @@ class Transformer(tf.keras.Model):
         return final_output, attention_weights
 
 if __name__ == '__main__':
-    sample_transformer = Transformer(
+    sample_transformer = Model(
         num_layers=2, d_model=512, num_heads=8, dff=2048,
         input_vocab_size=8500, target_vocab_size=8000,
         pe_input=10000, pe_target=6000)

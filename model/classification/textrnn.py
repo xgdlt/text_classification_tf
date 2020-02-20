@@ -14,6 +14,7 @@ Reference: "Effective LSTMs for Target-Dependent Sentiment Classification"
 import tensorflow as tf
 from tensorflow import keras
 
+from model.layers.embeddings import EmbeddingsLayer
 from utils.util import Type
 
 
@@ -27,13 +28,18 @@ class RNNType(Type):
         return ",".join([cls.RNN, cls.LSTM, cls.GRU])
 
 
-class TextRNN(tf.keras.Model):
+class Model(tf.keras.Model):
     """
     One layer rnn.
     """
     def __init__(self, config):
-        super(TextRNN, self).__init__()
+        super(Model, self).__init__()
         self.config = config
+        if self.config.embedding.use_embedding:
+            self.embedding = EmbeddingsLayer(config.embedding)
+        else:
+            self.reshape = keras.layers.Reshape((config.TextRNN.input_length, config.TextRNN.embedding_dimension))
+
         if  self.config.TextRNN.rnn_type == RNNType.LSTM:
             layer_cell = keras.layers.LSTM
         elif self.config.TextRNN.rnn_type == RNNType.GRU:
@@ -44,8 +50,6 @@ class TextRNN(tf.keras.Model):
         self.rnn_type = config.TextRNN.rnn_type
         self.num_layers = config.TextRNN.num_layers
         self.bidirectional = config.TextRNN.bidirectional
-        self.embedding = keras.layers.Embedding(config.TextRNN.input_dim, config.TextRNN.embedding_dimension,
-                                                input_length=config.TextRNN.input_length)
 
         self.layer_cells = []
         for i in range(config.TextRNN.num_layers):
@@ -67,10 +71,15 @@ class TextRNN(tf.keras.Model):
 
     def call(self, inputs, training=None, mask=None):
 
-        print('inputs', inputs)
-        # [b, sentence len] => [b, sentence len, word embedding]
-        x = self.embedding(inputs)
-        print('embedding', x)
+        print("inputs", inputs)
+        x = inputs
+        if self.config.embedding.use_embedding:
+            # [b, sentence len] => [b, sentence len, word embedding]
+            x = self.embedding(x)
+            print("embedding", x)
+        else:
+            x = self.reshape(x)
+
         for layer_cell in self.layer_cells:
             x = layer_cell(x)
         print('rnn', x)

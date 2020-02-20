@@ -7,26 +7,23 @@
   },
   "rest":false,
   "input_length": 80,
+  "num_classes": 1,
   "logits_type":"",
   "device": "cuda",
   "model_name": "TextCNN",
   "checkpoint_dir": "checkpoint_dir_rcv1",
   "model_dir": "trained_model_rcv1",
   "data": {
+    "type":"json", //"csv"
     "train_json_files": [
-      "data/rcv1_train.json"
+      "data/train.json"
     ],
     "validate_json_files": [
-      "data/rcv1_dev.json"
+      "data/dev.json"
     ],
     "test_json_files": [
-      "data/rcv1_test.json"
-    ],
-    "generate_dict_using_json_files": true,
-    "generate_dict_using_all_json_files": true,
-    "generate_dict_using_pretrained_embedding": false,
-    "dict_dir": "dict_rcv1",
-    "num_worker": 4
+      "data/test.json"
+    ]
   },
   "feature": {
     "feature_names": [
@@ -58,13 +55,23 @@
     "decay_rate": 1.0,
     "clip_gradients": 100.0,
     "l2_lambda": 0.0,
-    "loss_type": "BCEWithLogitsLoss",
+    "loss_type": "SoftmaxCrossEntropy",
     "sampler": "fixed",
     "num_sampled": 5,
     "visible_device_list": "0",
     "hidden_layer_dropout": 0.5
   },
+  "loss":{
+    "type": "SoftmaxCrossEntropy",
+    "focal_loss":{
+      "gamma":2.0,
+      "alpha":0.25,
+      "epsilon":1e-9
+    },
+    "from_logits":false
+  },
   "embedding": {
+    "use_embedding":true,
     "vocab_size":21128,
     "hidden_size": 768,
     "embedding_size": null,
@@ -88,24 +95,22 @@
     "adadelta_epsilon": 1e-08
   },
   "TextCNN": {
+
     "kernel_sizes": [
       2,
       3,
       4
     ],
     "filter_sizes": [64,64,64],
-    "input_dim":10000,
-    "embedding_dimension": 100,
     "input_length": 80,
     "num_kernels": 100,
-    "num_classes": 1,
     "top_k_max_pooling": 1
   },
    "MLP": {
      "layer_num":3,
      "num_classes":2,
      "classify": false,
-    "hiden_dimensions":[256,128]
+     "hiden_dimensions":[256,128]
   },
    "CNN": {
      "num_classes":1,
@@ -115,6 +120,19 @@
      "kernel_size": 1
   },
   "RNN": {
+    "hidden_dimension": 64,
+    "rnn_type": "LSTM",
+    "num_layers": 1,
+    "use_bias": true,
+    "activation": "relu",
+    "doc_embedding_type": "Attention",
+    "attention_dimension": 16,
+    "num_classes": 1,
+    "l2": 1e-3,
+    "classify": false,
+    "bidirectional": false
+  },
+  "TextBiRNN": {
     "hidden_dimension": 64,
     "rnn_type": "LSTM",
     "num_layers": 1,

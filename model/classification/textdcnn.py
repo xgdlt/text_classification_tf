@@ -7,8 +7,10 @@
 
 import tensorflow as tf
 from tensorflow import keras
+
+from model.layers.embeddings import EmbeddingsLayer
 from model.layers.layers import wide_convolution,dynamic_k_max_pooling,prem_fold
-from model.model_util import select_k
+from utils.model_util import select_k
 
 
 class BasicConvBlock(keras.layers.Layer):
@@ -40,16 +42,17 @@ class BasicConvBlock(keras.layers.Layer):
         return out
 
 
-class TextDCNN(tf.keras.Model):
+class Model(tf.keras.Model):
     def __init__(self, config):
-        super(TextDCNN, self).__init__( )
+        super(Model, self).__init__( )
+        self.config = config
+        if self.config.embedding.use_embedding:
+            self.embedding = EmbeddingsLayer(config.embedding)
+        else:
+            self.reshape = keras.layers.Reshape((config.TextDCNN.input_length, config.TextDCNN.embedding_dimension))
 
-        self.embedding = keras.layers.Embedding(config.TextDCNN.input_dim, config.TextDCNN.embedding_dimension,
-                                                input_length=config.TextDCNN.input_length)
         self.multil_kernel_sizes = config.TextDCNN.kernel_sizes
         self.convs = []
-
-        self.config = config
 
         for kernel_sizes in self.multil_kernel_sizes:
             conv = BasicConvBlock(input_len_max=config.TextDCNN.input_length, filters=config.TextDCNN.filters, kernel_sizes=kernel_sizes)
@@ -58,16 +61,22 @@ class TextDCNN(tf.keras.Model):
         #self.top_k = self.config.TextCNN.top_k_max_pooling
         self.flatten = keras.layers.Flatten()
         self.dropout = keras.layers.Dropout(config.TextDCNN.dropout)
-        self.fc = keras.layers.Dense(config.TextCNN.num_classes)
+        self.fc = keras.layers.Dense(config.num_classes)
 
     def call(self, inputs,training=None, mask=None):
         print("inputs", inputs)
-        embedding = self.embedding(inputs)
-        print("embedding", embedding)
+        x = inputs
+        if self.config.embedding.use_embedding:
+            x = self.embedding(x)
+            print("embedding", x)
+        else:
+            x = self.reshape(x)
+            print("reshape", x)
+
         cnns = []
         for i in range(len(self.convs)):
-            x = self.convs[i](embedding)
-            cnns.append(x)
+            conv = self.convs[i](x)
+            cnns.append(conv)
             print("conv %d"%i, x)
 
         x = keras.layers.concatenate(cnns)

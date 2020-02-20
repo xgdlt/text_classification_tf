@@ -8,24 +8,31 @@
 
 import tensorflow as tf
 from tensorflow import keras
-from model.embeddings import EmbeddingsLayer
+
+from model.layers.embeddings import EmbeddingsLayer
 
 
-class TextCNN(tf.keras.Model):
+class Model(tf.keras.Model):
     def __init__(self, config):
-        super(TextCNN, self).__init__()
+        super(Model, self).__init__()
         self.config = config
-        self.embedding = EmbeddingsLayer(config.embedding)
+        if self.config.embedding.use_embedding:
+            self.embedding = EmbeddingsLayer(config.embedding)
+            self.reshape = keras.layers.Reshape((config.TextCNN.input_length, config.embedding.hidden_size, 1))
+            self.embedding_size = config.embedding.hidden_size
+        else:
+            self.reshape = keras.layers.Reshape((config.TextCNN.input_length, config.TextCNN.embedding_dimension, 1))
+            self.embedding_size = config.TextCNN.embedding_dimension
             #keras.layers.Embedding(config.TextCNN.input_dim, config.TextCNN.embedding_dimension,
             #                                    input_length=config.TextCNN.input_length)
-        self.reshape = keras.layers.Reshape((config.TextCNN.input_length, config.embedding.hidden_size, 1))
+
 
         self.kernel_sizes = config.TextCNN.kernel_sizes
         self.convs = []
         self.pools = []
 
         for kernel_size in self.kernel_sizes:
-            conv = keras.layers.Conv2D(filters=64, kernel_size=(kernel_size, config.TextCNN.embedding_dimension),
+            conv = keras.layers.Conv2D(filters=64, kernel_size=(kernel_size, self.embedding_size),
                                  strides=1, padding='valid', activation='relu')
             self.convs.append(conv)
             pool =  keras.layers.MaxPool2D(pool_size=(config.TextCNN.input_length - kernel_size + 1, 1), padding='valid')
@@ -33,12 +40,14 @@ class TextCNN(tf.keras.Model):
 
         #self.top_k = self.config.TextCNN.top_k_max_pooling
         self.flatten = keras.layers.Flatten()
-        self.fc = keras.layers.Dense(config.TextCNN.num_classes)
+        self.fc = keras.layers.Dense(config.num_classes)
 
     def call(self, inputs,training=None, mask=None):
         print("inputs", inputs)
-        x = self.embedding(inputs)
-        print("embedding", x)
+        x = inputs
+        if self.config.embedding.use_embedding:
+            x = self.embedding(x)
+            print("embedding", x)
         x = self.reshape(x)
         print("reshape ", x)
         cnns = []

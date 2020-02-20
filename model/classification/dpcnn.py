@@ -8,9 +8,10 @@ Author:
         Deep Pyramid Convolutional Neural Networks for Text Categorization
 """
 
-
 import tensorflow as tf
 from tensorflow import keras
+
+from model.layers.embeddings import EmbeddingsLayer
 
 
 class ResCNN(keras.layers.Layer):
@@ -58,17 +59,22 @@ class Repeat(keras.layers.Layer):
         print("Repeat pool", out)
         return out
 
-class DPCNN(keras.Model):
+class Model(keras.Model):
     """
     Reference:
         Deep Pyramid Convolutional Neural Networks for Text Categorization
     """
 
     def __init__(self,  config):
-        super(DPCNN, self).__init__(config)
+        super(Model, self).__init__(config)
         self.config = config
-        self.embedding = keras.layers.Embedding(config.DPCNN.input_dim, config.DPCNN.embedding_dimension,
-                                                input_length=config.DPCNN.input_length)
+        if self.config.embedding.use_embedding:
+            self.embedding = EmbeddingsLayer(config.embedding)
+        else:
+            self.reshape = keras.layers.Reshape((config.DPCNN.input_length, config.DPCNN.embedding_dimension))
+
+        #self.embedding = keras.layers.Embedding(config.DPCNN.input_dim, config.DPCNN.embedding_dimension,
+        #                                        input_length=config.DPCNN.input_length)
         self.spatial_dropout1d = keras.layers.SpatialDropout1D(config.DPCNN.spatial_dropout)
         self.conv_1 = keras.layers.Conv1D(filters=config.DPCNN.filters, kernel_size=1, padding='SAME', \
                                           kernel_regularizer=keras.regularizers.l2(config.DPCNN.l2))
@@ -92,16 +98,19 @@ class DPCNN(keras.Model):
 
 
     def call(self, inputs,training=None, mask=None):
-        embedding = self.embedding(inputs)
-        embedding = self.spatial_dropout1d(embedding)
-
-        print("embedding",embedding )
-
-        region_embedding = self.conv_1(embedding)
+        print("inputs", inputs)
+        x = inputs
+        if self.config.embedding.use_embedding:
+            x = self.embedding(x)
+        else:
+            x = self.reshape(x)
+        x = self.spatial_dropout1d(x)
+        print("embedding",x )
+        region_embedding = self.conv_1(x)
         region_embedding = self.prelu(region_embedding)
         print("region_embedding", region_embedding)
 
-        out = self.first_block(embedding,training= training)
+        out = self.first_block(x,training= training)
         out = self.add([out,region_embedding])
         out = self.max_pooling(out)
         print("max_pooling", out)

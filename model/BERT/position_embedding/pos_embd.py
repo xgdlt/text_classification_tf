@@ -1,7 +1,6 @@
 from tensorflow import keras
 import tensorflow.keras.backend as K
 
-
 class PositionEmbedding(keras.layers.Layer):
     """Turn integers (positions) into dense vectors of fixed size.
     eg. [[-4], [10]] -> [[0.25, 0.1], [0.6, -0.2]]

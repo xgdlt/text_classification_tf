@@ -123,6 +123,14 @@ class Progress:
             yield j
 
 
+def worker_step(func,in_queue, out_queue):
+    # 单步函数包装成循环执行
+    while True:
+        d = in_queue.get()
+        r = func(d)
+        out_queue.put(r)
+
+
 def parallel_apply(func,
                    iterable,
                    workers,
@@ -143,15 +151,10 @@ def parallel_apply(func,
 
     in_queue, out_queue = Queue(max_queue_size), Queue()
 
-    def worker_step(in_queue, out_queue):
-        # 单步函数包装成循环执行
-        while True:
-            d = in_queue.get()
-            r = func(d)
-            out_queue.put(r)
+
 
     # 启动多进程/线程
-    pool = Pool(workers, worker_step, (in_queue, out_queue))
+    pool = Pool(workers, worker_step, (func, in_queue, out_queue))
 
     if callback is None:
         results = []

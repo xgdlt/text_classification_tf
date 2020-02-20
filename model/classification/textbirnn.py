@@ -4,7 +4,7 @@
 Author:
     LiTeng 1471356861@qq.com
 
-Implement TextRNN, contains LSTM，GRU，RNN
+Implement TextBiRNN, contains LSTM，GRU，RNN
 Reference: "Effective LSTMs for Target-Dependent Sentiment Classification"
                "Bidirectional LSTM-CRF Models for Sequence Tagging"
                "Generative and discriminative text classification
@@ -14,6 +14,7 @@ Reference: "Effective LSTMs for Target-Dependent Sentiment Classification"
 import tensorflow as tf
 from tensorflow import keras
 
+from model.layers.embeddings import EmbeddingsLayer
 from utils.util import Type
 
 
@@ -27,47 +28,56 @@ class RNNType(Type):
         return ",".join([cls.RNN, cls.LSTM, cls.GRU])
 
 
-class RNN(tf.keras.Model):
+class Model(tf.keras.Model):
     """
     One layer rnn.
     """
     def __init__(self, config):
-        super(RNN, self).__init__()
+        super(Model, self).__init__()
         self.config = config
-        if  self.config.TextRNN.rnn_type == RNNType.LSTM:
+        if self.config.embedding.use_embedding:
+            self.embedding = EmbeddingsLayer(config.embedding)
+        else:
+            self.reshape = keras.layers.Reshape((config.TextBiRNN.input_length, config.TextBiRNN.embedding_dimension))
+            
+        if  self.config.TextBiRNN.rnn_type == RNNType.LSTM:
             layer_cell = keras.layers.LSTM
-        elif self.config.TextRNN.rnn_type == RNNType.GRU:
+        elif self.config.TextBiRNN.rnn_type == RNNType.GRU:
             layer_cell = keras.layers.GRU
         else:
             layer_cell = keras.layers.SimpleRNN
 
-        self.rnn_type = config.TextRNN.rnn_type
-        self.num_layers = config.TextRNN.num_layers
-        self.bidirectional = config.TextRNN.bidirectional
-        self.embedding = keras.layers.Embedding(config.TextRNN.input_dim, config.TextRNN.embedding_dimension,
-                                                input_length=config.TextRNN.input_length)
+        self.rnn_type = config.TextBiRNN.rnn_type
+        self.num_layers = config.TextBiRNN.num_layers
+        self.bidirectional = config.TextBiRNN.bidirectional
+        #self.embedding = keras.layers.Embedding(config.TextBiRNN.input_dim, config.TextBiRNN.embedding_dimension,
+        #                                        input_length=config.TextBiRNN.input_length)
 
         self.layer_cells = []
-        for i in range(config.TextRNN.num_layers):
+        for i in range(config.TextBiRNN.num_layers):
             self.layer_cells.append(keras.layers.Bidirectional(
-                layer_cell(config.TextRNN.hidden_dimension,
-                            use_bias=config.TextRNN.use_bias,
-                            activation=config.TextRNN.activation,
-                            kernel_regularizer=keras.regularizers.l2(self.config.TextRNN.l2 * 0.1),
-                            recurrent_regularizer=keras.regularizers.l2(self.config.TextRNN.l2))))
+                layer_cell(config.TextBiRNN.hidden_dimension,
+                            use_bias=config.TextBiRNN.use_bias,
+                            activation=config.TextBiRNN.activation,
+                            kernel_regularizer=keras.regularizers.l2(self.config.TextBiRNN.l2 * 0.1),
+                            recurrent_regularizer=keras.regularizers.l2(self.config.TextBiRNN.l2))))
 
-        self.fc = keras.layers.Dense(config.TextRNN.num_classes)
+        self.fc = keras.layers.Dense(config.TextBiRNN.num_classes)
 
     def call(self, inputs, training=None, mask=None):
 
-        print('inputs', inputs)
-        # [b, sentence len] => [b, sentence len, word embedding]
-        x = self.embedding(inputs)
-        print('embedding', x)
+        print("inputs", inputs)
+        x = inputs
+        if self.config.embedding.use_embedding:
+            # [b, sentence len] => [b, sentence len, word embedding]
+            x = self.embedding(x)
+            print("embedding", x)
+        else:
+            x = self.reshape(x)
+       
         for layer_cell in self.layer_cells:
             x = layer_cell(x)
         print('rnn', x)
-
         x = self.fc(x)
         print(x.shape)
 

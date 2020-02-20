@@ -377,8 +377,6 @@ class EmbeddingsLayer(tf.keras.layers.Layer):
         self.dropout_layer    = None
 
 
-
-    # noinspection PyAttributeOutsideInit
     def build(self, input_shape):
         if isinstance(input_shape, list):
             assert len(input_shape) == 2

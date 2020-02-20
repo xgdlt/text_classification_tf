@@ -12,12 +12,11 @@ or implied. See the License for thespecific language governing permissions and l
 the License.
 """
 
-import math
-
-import tensorflow as tf
 from tensorflow import keras
-from model.model_util import *
-from model.attention import *
+
+from model.layers.attention import *
+from utils.model_util import *
+
 
 class k_max_pooling(keras.layers.Layer):
     """

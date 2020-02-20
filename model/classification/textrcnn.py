@@ -10,6 +10,7 @@ Implement TextRCNN  CNN + RNN
 import tensorflow as tf
 from tensorflow import keras
 
+from model.layers.embeddings import EmbeddingsLayer
 from utils.util import Type
 
 
@@ -22,16 +23,18 @@ class RNNType(Type):
     def str(cls):
         return ",".join([cls.RNN, cls.LSTM, cls.GRU])
 
-class TextRCNN(tf.keras.Model):
+class Model(tf.keras.Model):
     """
     One layer rnn.
     """
     def __init__(self, config):
-        super(TextRCNN, self).__init__()
-
-        self.embedding = keras.layers.Embedding(config.TextRNN.input_dim, config.TextRNN.embedding_dimension,
-                                                input_length=config.TextRNN.input_length)
+        super(Model, self).__init__()
         self.config = config
+        if self.config.embedding.use_embedding:
+            self.embedding = EmbeddingsLayer(config.embedding)
+        else:
+            self.reshape = keras.layers.Reshape((config.TextRCNN.input_length, config.TextRCNN.embedding_dimension))
+
         if self.config.TextRNN.rnn_type == RNNType.LSTM:
             layer_cell = keras.layers.LSTM
         elif self.config.TextRNN.rnn_type == RNNType.GRU:
@@ -77,13 +80,18 @@ class TextRCNN(tf.keras.Model):
         self.fc = keras.layers.Dense(config.TextCNN.num_classes)
 
     #tf.function(input_signature=[tf.TensorSpec([None, 80], tf.float32)])
-    @tf.function
     def call(self, inputs, training=None, mask=None):
 
         print('inputs', inputs)
-        # [b, sentence len] => [b, sentence len, word embedding]
-        x = self.embedding(inputs)
-        print('embedding', x)
+        x = inputs
+        if self.config.embedding.use_embedding:
+            # [b, sentence len] => [b, sentence len, word embedding]
+            x = self.embedding(x)
+            print("embedding", x)
+        else:
+            x = self.reshape(x)
+            print("reshape", x)
+
         for layer_cell in self.layer_cells:
             x = layer_cell(x)
         print('rnn', x)
