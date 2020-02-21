@@ -9,7 +9,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 from model.layers.embeddings import EmbeddingsLayer
-from utils.util import Type
+from utils.logger import Type
 
 
 class SWEMType(Type):

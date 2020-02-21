@@ -10,7 +10,7 @@ from tensorflow import keras
 
 from model.layers.embeddings import EmbeddingsLayer
 from model.layers.layers import wide_convolution,dynamic_k_max_pooling,prem_fold
-from utils.model_util import select_k
+from utils.utils import select_k
 
 
 class BasicConvBlock(keras.layers.Layer):

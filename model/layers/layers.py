@@ -15,7 +15,7 @@ the License.
 from tensorflow import keras
 
 from model.layers.attention import *
-from utils.model_util import *
+from utils.utils import *
 
 
 class k_max_pooling(keras.layers.Layer):

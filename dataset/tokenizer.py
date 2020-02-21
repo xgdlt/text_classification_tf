@@ -1,9 +1,11 @@
 #! -*- coding: utf-8 -*-
 # 工具函数
 
-import unicodedata, re
-from dataset.snippets import is_string
-from dataset.snippets import open
+import re
+import unicodedata
+
+from utils.snippets import is_string
+from utils.snippets import open
 
 
 def load_vocab(dict_path, encoding='utf-8'):

@@ -6,7 +6,7 @@ Author:
 """
 
 
-from utils.util import Type
+from utils.logger import Type
 from tensorflow import keras
 import tensorflow as tf
 
@@ -93,6 +93,24 @@ class FocalLoss(tf.keras.losses.Loss):
                             + "Supported activation types: " +
                             ActivationType.str())
         return loss
+
+
+def get_classify_loss(type,from_logits,num_classes,gamma=2.0, alpha=0.25, epsilon=1.e-9):
+    if type == LossType.SOFTMAX_CROSS_ENTROPY:
+        criterion = tf.keras.losses.CategoricalCrossentropy(from_logits=from_logits)
+    elif type == LossType.SPARSE_SOFTMAX_CROSS_ENTROPY:
+        criterion = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=from_logits)
+    elif type == LossType.SOFTMAX_FOCAL_CROSS_ENTROPY:
+        criterion = FocalLoss(num_classes, ActivationType.SOFTMAX, from_logits, gamma, alpha)
+    elif type == LossType.SIGMOID_FOCAL_CROSS_ENTROPY:
+        criterion = FocalLoss(num_classes, ActivationType.SIGMOID, from_logits,   gamma, alpha, epsilon)
+    elif type == LossType.MEAN_SQUARED_ERROR:
+        criterion = keras.losses.MeanSquaredError()
+    else:
+        raise TypeError(
+            "Unsupported loss type: %s. Supported loss type is: %s" % (
+                type, LossType.str()))
+    return criterion
 
 
 def get_loss(config):

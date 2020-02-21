@@ -14,7 +14,7 @@ Reference: "Effective LSTMs for Target-Dependent Sentiment Classification"
 import tensorflow as tf
 from tensorflow import keras
 
-from utils.util import Type
+from utils.logger import Type
 
 
 class RNNType(Type):

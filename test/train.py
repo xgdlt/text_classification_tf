@@ -5,7 +5,7 @@ from model.classification import textcnn,textrnn,textrcnn,textvdcnn,textdcnn,dpc
 from tensorflow import keras
 from config import Config
 from dataset.tokenizer import *
-from dataset.data_utils import *
+from dataset.dataset import *
 
 #tf.random.set_seed(22)
 #np.random.seed(22)

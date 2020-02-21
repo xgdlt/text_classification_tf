@@ -12,28 +12,6 @@ import sys
 EPS = 1e-7
 
 
-class Type(object):
-    @classmethod
-    def str(cls):
-        raise NotImplementedError
-
-
-class ModeType(Type):
-    """Standard names for model_torch modes.
-    The following standard keys are defined:
-    * `TRAIN`: training mode.
-    * `EVAL`: evaluation mode.
-    * `PREDICT`: inference mode.
-    """
-    TRAIN = 'train'
-    EVAL = 'eval'
-    PREDICT = 'infer'
-
-    @classmethod
-    def str(cls):
-        return ",".join([cls.TRAIN, cls.EVAL, cls.PREDICT])
-
-
 class Logger(object):
     _instance = None
 

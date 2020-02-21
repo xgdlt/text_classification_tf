@@ -5,7 +5,7 @@ from model.classification import textcnn,textrnn,textrcnn,textvdcnn,textdcnn,dpc
 from tensorflow import keras
 from config import Config
 from dataset.tokenizer import *
-from dataset.data_utils import *
+from dataset.dataset import *
 import matplotlib.pyplot as plt
 
 # In[16]:
@@ -71,15 +71,16 @@ def main():
     config = Config(config_file="../conf/train.json")
     batch_size = 1
 
-    print(globals())
+    print("model_name", config.model_name)
+    model= globals().get(config.model_name).Model(config)
     #model = rnn.RNN(config)
-    model = textcnn.TextCNN(config)
+    #model = textcnn.Model(config)
     check_path = 'ckpt\model.ckpt'
     check_dir = os.path.dirname(check_path)
     latest = tf.train.latest_checkpoint(check_dir)
     print(latest)
 
-    cp_callback = tf.keras.callbacks.ModelCheckpoint(check_path, verbose=1, save_freq=1000)
+    cp_callback = tf.keras.callbacks.ModelCheckpoint(check_path, verbose=1, save_freq="epoch")
     checkpoint = tf.train.Checkpoint(model=model)
     model.compile(optimizer=keras.optimizers.Adam(0.001),
                   loss=keras.losses.MeanSquaredError(),

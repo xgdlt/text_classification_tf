@@ -11,7 +11,7 @@ Star-Transformer Encode:
 import tensorflow as tf
 
 from model.layers.attention import MultiHeadAttention,point_wise_feed_forward_network
-from utils.model_util import positional_encoding
+from utils.utils import positional_encoding
 
 
 class DecoderLayer(tf.keras.layers.Layer):

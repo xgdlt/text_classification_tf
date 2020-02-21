@@ -6,26 +6,30 @@ Author:
 """
 
 import codecs as cs
-
 import numpy as np
 import tensorflow as tf
 
-from utils.util import Type
+class Type(object):
+    @classmethod
+    def str(cls):
+        raise NotImplementedError
 
 
-class ActivationType(Type):
-    """Standard names for activation
+class ModeType(Type):
+    """Standard names for model_torch modes.
+    The following standard keys are defined:
+    * `TRAIN`: training mode.
+    * `EVAL`: evaluation mode.
+    * `PREDICT`: inference mode.
     """
-    SIGMOID = 'sigmoid'
-    TANH = "tanh"
-    RELU = 'relu'
-    LEAKY_RELU = 'leaky_relu'
-    NONE = 'linear'
+    TRAIN = 'train'
+    EVAL = 'eval'
+    PREDICT = 'predict'
 
     @classmethod
     def str(cls):
-        return ",".join(
-            [cls.SIGMOID, cls.TANH, cls.RELU, cls.LEAKY_RELU, cls.NONE])
+        return ",".join([cls.TRAIN, cls.EVAL, cls.PREDICT])
+
 
 
 class InitType(Type):

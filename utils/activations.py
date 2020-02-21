@@ -9,9 +9,25 @@ import numpy as np
 import tensorflow as tf
 
 
+class ActivationType(object):
+    """Standard names for activation
+    """
+    SIGMOID = 'sigmoid'
+    TANH = "tanh"
+    RELU = 'relu'
+    LEAKY_RELU = 'leaky_relu'
+    NONE = 'linear'
+
+    @classmethod
+    def str(cls):
+        return ",".join(
+            [cls.SIGMOID, cls.TANH, cls.RELU, cls.LEAKY_RELU, cls.NONE])
+
+
 def gelu(x):
     """
     Gelu activation from arXiv:1606.08415.
+    See: https://arxiv.org/pdf/1606.08415.pdf
     """
     cdf = 0.5 * (1.0 + tf.tanh(
         np.sqrt(2.0 / np.pi) * (x + 0.044715 * tf.pow(x, 3))

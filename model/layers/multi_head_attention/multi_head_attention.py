@@ -1,6 +1,7 @@
-from tensorflow import keras
 import tensorflow.keras.backend as K
-from model.BERT.self_attention import ScaledDotProductAttention
+from tensorflow import keras
+
+from model.layers.self_attention import ScaledDotProductAttention
 
 
 class MultiHeadAttention(keras.layers.Layer):
