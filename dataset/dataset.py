@@ -152,6 +152,154 @@ class TrainingDataset(object):
         return dataset
 
 
+
+class TrainingEncodingDataset(object):
+    """预训练数据集生成器
+    """
+    def __init__(self, bert_client, labels =[],sequence_length=512):
+        """参数说明：
+            tokenizer必须是bert4keras自带的tokenizer类；
+        """
+        self.bc = bert_client
+        self.tokenizer = tokenizer
+        self.sequence_length = sequence_length
+        self.labels = labels
+        self.labels_size = len(labels)
+        self.label_to_id = {}
+
+        for i,label in enumerate(labels):
+            self.label_to_id[label] = i
+
+
+    def sentence_process(self, text_a,target,text_b=None,):
+        """单个文本的处理函数
+               流程：分词，然后转id，按照mask_rate构建全词mask的序列
+                     来指定哪些token是否要被mask
+               """
+        word_tokens = self.tokenizer.tokenize(text=text_a)
+        token_ids = self.tokenizer.tokens_to_ids(word_tokens)
+
+        token_ids = token_ids[0:self.sequence_length]
+
+        # 如果长度即将溢出
+        while len(token_ids) < self.sequence_length:
+            # 插入终止符，并padding
+            token_ids.append(self.token_pad_id)
+
+        target_ids = []
+        for label in target.split(" "):
+            target_ids.append(self.label_to_id.get(label,len(self.labels)))
+
+
+        return [token_ids,target_ids]
+
+
+    def paragraph_process(self, corpus,batch_size=64):
+        """单个段落（多个文本）的处理函数
+        说明：texts是单句组成的list；
+        做法：不断塞句子，直到长度最接近sequence_length，然后padding。
+        """
+        instances = []
+        text_encodings = []
+        target_ids = []
+        batch_texts = []
+
+        for text, target in corpus:
+            # 处理单个句子
+            #print(item)
+            label_ids = [0] * self.labels_size
+            for label in target.split(" "):
+                if label not in self.label_to_id:continue
+                label_ids[self.label_to_id[label]] = 1
+            target_ids.append(label_ids)
+
+            batch_texts.append(text)
+
+            if len(batch_texts) > batch_size:
+                encodings = self.bc.encode(batch_texts)
+                for encoding in encodings:
+                    text_encodings.append(encoding)
+                batch_texts = []
+
+
+        assert len(text_encodings) == len(target_ids)
+
+        return text_encodings,target_ids
+
+    def tfrecord_serialize(self, instances):
+        """转为tfrecord的字符串，等待写入到文件
+        """
+        def create_int_feature(x):
+            return tf.train.Feature(int64_list=tf.train.Int64List(value=x))
+
+        def create_float_feature(x):
+            return tf.train.Feature(float_list=tf.train.FloatList(value=x))
+
+        serialized_instances = []
+        for token_encoding, label_ids in instances:
+            features = {
+                'token_encoding': create_float_feature(token_encoding),
+                'label_ids': create_int_feature(label_ids)
+            }
+            tf_features = tf.train.Features(feature=features)
+            tf_example = tf.train.Example(features=tf_features)
+            serialized_instance = tf_example.SerializeToString()
+            serialized_instances.append(serialized_instance)
+
+        return serialized_instances
+
+
+    def process(self, corpus, record_name):
+        """处理输入语料（corpus），最终转为tfrecord格式（record_name）
+        自带多进程支持，如果cpu核心数多，请加大workers和max_queue_size。
+        """
+        writer = tf.io.TFRecordWriter(record_name)
+        globals()['count'] = 0
+        instances = self.paragraph_process(corpus)
+        serialized_instances = self.tfrecord_serialize(instances)
+        globals()['count'] += len(serialized_instances)
+        for serialized_instance in serialized_instances:
+            writer.write(serialized_instance)
+
+        writer.close()
+        print('write %s examples into %s' % (globals()['count'], record_name))
+
+    @staticmethod
+    def load_tfrecord(record_names,encoding_length, batch_size,label_length=None,is_training = True):
+        """加载处理成tfrecord格式的语料
+        """
+        """给原方法补上parse_function
+              """
+
+        def parse_function(serialized):
+            features = {
+                'token_encoding': tf.io.FixedLenFeature([encoding_length], tf.float32),
+                'label_ids': tf.io.FixedLenFeature([], tf.int64),
+            }
+            features = tf.io.parse_single_example(serialized, features)
+            token_encoding = features['token_encoding']
+            label_ids = features['label_ids']
+
+            x = {
+                'token_encoding': token_encoding
+            }
+            y = {
+                'label_ids': label_ids
+            }
+            return token_encoding, label_ids
+
+        if not isinstance(record_names, list):
+            record_names = [record_names]
+
+        dataset = tf.data.TFRecordDataset(record_names)  # 加载
+        dataset = dataset.map(parse_function)  # 解析
+        dataset = dataset.repeat()  # 循环
+        dataset = dataset.shuffle(batch_size * 1000)  # 打乱
+        dataset = dataset.batch(batch_size)  # 成批
+
+        return dataset
+
+
 if __name__ == '__main__':
 
 
