@@ -11,6 +11,11 @@ import sys
 
 EPS = 1e-7
 
+class Type(object):
+    @classmethod
+    def str(cls):
+        raise NotImplementedError
+
 
 class Logger(object):
     _instance = None

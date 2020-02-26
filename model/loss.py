@@ -95,7 +95,7 @@ class FocalLoss(tf.keras.losses.Loss):
         return loss
 
 
-def get_classify_loss(type,from_logits,num_classes,gamma=2.0, alpha=0.25, epsilon=1.e-9):
+def get_classify_loss(type,from_logits=False,num_classes=None,gamma=2.0, alpha=0.25, epsilon=1.e-9):
     if type == LossType.SOFTMAX_CROSS_ENTROPY:
         criterion = tf.keras.losses.CategoricalCrossentropy(from_logits=from_logits)
     elif type == LossType.SPARSE_SOFTMAX_CROSS_ENTROPY:

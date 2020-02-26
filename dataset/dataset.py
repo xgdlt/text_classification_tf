@@ -161,7 +161,6 @@ class TrainingEncodingDataset(object):
             tokenizer必须是bert4keras自带的tokenizer类；
         """
         self.bc = bert_client
-        self.tokenizer = tokenizer
         self.sequence_length = sequence_length
         self.labels = labels
         self.labels_size = len(labels)
@@ -199,7 +198,7 @@ class TrainingEncodingDataset(object):
         说明：texts是单句组成的list；
         做法：不断塞句子，直到长度最接近sequence_length，然后padding。
         """
-        instances = []
+
         text_encodings = []
         target_ids = []
         batch_texts = []
@@ -224,7 +223,7 @@ class TrainingEncodingDataset(object):
 
         assert len(text_encodings) == len(target_ids)
 
-        return text_encodings,target_ids
+        return zip(text_encodings,target_ids)
 
     def tfrecord_serialize(self, instances):
         """转为tfrecord的字符串，等待写入到文件
@@ -274,7 +273,7 @@ class TrainingEncodingDataset(object):
         def parse_function(serialized):
             features = {
                 'token_encoding': tf.io.FixedLenFeature([encoding_length], tf.float32),
-                'label_ids': tf.io.FixedLenFeature([], tf.int64),
+                'label_ids': tf.io.FixedLenFeature([label_length], tf.int64),
             }
             features = tf.io.parse_single_example(serialized, features)
             token_encoding = features['token_encoding']
@@ -293,10 +292,10 @@ class TrainingEncodingDataset(object):
 
         dataset = tf.data.TFRecordDataset(record_names)  # 加载
         dataset = dataset.map(parse_function)  # 解析
-        dataset = dataset.repeat()  # 循环
-        dataset = dataset.shuffle(batch_size * 1000)  # 打乱
+        if is_training:
+            dataset = dataset.repeat()  # 循环
+            dataset = dataset.shuffle(batch_size * 1000)  # 打乱
         dataset = dataset.batch(batch_size)  # 成批
-
         return dataset
 
 

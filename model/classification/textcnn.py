@@ -18,10 +18,10 @@ class Model(tf.keras.Model):
         self.config = config
         if self.config.embedding.use_embedding:
             self.embedding = EmbeddingsLayer(config.embedding)
-            self.reshape = keras.layers.Reshape((config.TextCNN.input_length, config.embedding.hidden_size, 1))
+            self.reshape = keras.layers.Reshape((config.input_length, config.embedding.hidden_size, 1))
             self.embedding_size = config.embedding.hidden_size
         else:
-            self.reshape = keras.layers.Reshape((config.TextCNN.input_length, config.TextCNN.embedding_dimension, 1))
+            self.reshape = keras.layers.Reshape((config.input_length, config.TextCNN.embedding_dimension, 1))
             self.embedding_size = config.TextCNN.embedding_dimension
             #keras.layers.Embedding(config.TextCNN.input_dim, config.TextCNN.embedding_dimension,
             #                                    input_length=config.TextCNN.input_length)
@@ -35,7 +35,7 @@ class Model(tf.keras.Model):
             conv = keras.layers.Conv2D(filters=64, kernel_size=(kernel_size, self.embedding_size),
                                  strides=1, padding='valid', activation='relu')
             self.convs.append(conv)
-            pool =  keras.layers.MaxPool2D(pool_size=(config.TextCNN.input_length - kernel_size + 1, 1), padding='valid')
+            pool =  keras.layers.MaxPool2D(pool_size=(config.input_length - kernel_size + 1, 1), padding='valid')
             self.pools.append(pool)
 
         #self.top_k = self.config.TextCNN.top_k_max_pooling

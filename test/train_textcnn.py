@@ -73,6 +73,7 @@ def main():
 
     print("model_name", config.model_name)
     model= globals().get(config.model_name).Model(config)
+    optimizer = globals().get(config.optimizer.name).get(config)
     #model = rnn.RNN(config)
     #model = textcnn.Model(config)
     check_path = 'ckpt\model.ckpt'
@@ -82,7 +83,7 @@ def main():
 
     cp_callback = tf.keras.callbacks.ModelCheckpoint(check_path, verbose=1, save_freq="epoch")
     checkpoint = tf.train.Checkpoint(model=model)
-    model.compile(optimizer=keras.optimizers.Adam(0.001),
+    model.compile(optimizer=optimizer,
                   loss=keras.losses.MeanSquaredError(),
                   metrics=['accuracy'])
     if latest:

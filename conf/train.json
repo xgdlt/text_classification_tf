@@ -1,9 +1,6 @@
 {
   "task_info":{
-    "label_type": "multi_label",
-    "hierarchical": true,
-    "hierar_taxonomy": "data/rcv1.taxonomy",
-    "hierar_penalty": 0.000001
+    "label_type": "multi_label"
   },
   "rest":false,
   "input_length": 80,
@@ -11,17 +8,17 @@
   "logits_type":"",
   "device": "cuda",
   "model_name": "textcnn",
-  "checkpoint_dir": "checkpoint_dir_rcv1",
+  "checkpoint_dir": "./ckpt/",
   "model_dir": "trained_model_rcv1",
   "data": {
     "type":"json",
-    "train_json_files": [
+    "train_files": [
       "data/train.json"
     ],
-    "validate_json_files": [
+    "validate_files": [
       "data/dev.json"
     ],
-    "test_json_files": [
+    "test_files": [
       "data/test.json"
     ]
   },

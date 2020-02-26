@@ -7,6 +7,7 @@ from config import Config
 from dataset.tokenizer import *
 from dataset.dataset import *
 
+import tensorflow as tf
 #tf.random.set_seed(22)
 #np.random.seed(22)
 #os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -52,12 +53,16 @@ def main():
     #model = rnn.RNN(config)
     model = textcnn.TextCNN(config)
     check_path = './ckpt/model.ckpt'
-    checkpoint = tf.train.Checkpoint(model=model)
+
     cp_callback = tf.keras.callbacks.ModelCheckpoint(check_path, verbose=1, save_freq=1)
     model.compile(optimizer=keras.optimizers.Adam(0.001),
                   loss=keras.losses.MeanSquaredError(),
                   metrics=['accuracy'])
 
+    latest = tf.train.latest_checkpoint(config.checkpoint_dir)
+    if latest:
+        print(latest)
+        model.load_weights(latest)
 
     #model.summary()
     # train
@@ -66,10 +71,10 @@ def main():
     #          validation_data=(x_test, y_test), verbose=1, callbacks=[cp_callback])
 
     model.fit_generator(dataset,steps_per_epoch=10,validation_data=dataset, validation_steps=10,epochs=1, verbose=1, callbacks=[cp_callback])
-    model.summary()
-    model.save('path_to_saved_model', save_format='tf')
-    path = checkpoint.save(check_path)
-    print("model saved to %s" % path)
+   if False:
+        checkpoint = tf.train.Checkpoint(model=model)
+        model.save(config.model_dir, save_format='tf')
+        print("model saved to %s" % config.model_dir)
 
     # evaluate on test set
     scores = model.evaluate_generator(dataset,steps=20,verbose=1)
@@ -77,6 +82,7 @@ def main():
     scores = model.predict_generator(dataset,steps=10,verbose=1)
     for score in scores:
         print(score)
+    model.summary()
 
 if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
